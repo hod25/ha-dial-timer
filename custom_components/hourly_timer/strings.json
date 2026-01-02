@@ -1,0 +1,35 @@
+{
+  "title": "Hourly Timer",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hourly Timer Setup",
+        "description": "Select an entity to control with the timer",
+        "data": {
+          "entity_id": "Entity to control"
+        }
+      }
+    },
+    "error": {
+      "invalid_entity": "Please select a valid entity (switch, light, fan, or climate)",
+      "already_configured": "This entity already has a timer configured",
+      "cannot_connect": "Failed to connect",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "Timer for this entity is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure Timer Options",
+        "description": "Customize your timer settings",
+        "data": {
+          "max_duration": "Maximum duration (minutes)",
+          "step_size": "Step size (minutes)"
+        }
+      }
+    }
+  }
+}

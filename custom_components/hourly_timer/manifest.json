@@ -1,0 +1,11 @@
+{
+  "domain": "hourly_timer",
+  "name": "Hourly Timer Integration",
+  "version": "1.0.0",
+  "documentation": "https://github.com/hod25/hourly-timer-integration",
+  "dependencies": [],
+  "codeowners": ["@hod25"],
+  "requirements": [],
+  "config_flow": true,
+  "iot_class": "calculated"
+}

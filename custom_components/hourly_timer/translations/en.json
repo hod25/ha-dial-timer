@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Hourly Timer Setup",
+        "description": "Select an entity to control (switch, light, fan, etc.)",
+        "data": {
+          "entity_id": "Entity"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "This entity already has a timer configured"
+    },
+    "error": {
+      "invalid_entity": "Please select an entity of type switch, light, fan, or climate only",
+      "cannot_connect": "Cannot connect to server",
+      "unknown": "Unexpected error"
+    }
+  },
+  "title": "Hourly Timer"
+}
