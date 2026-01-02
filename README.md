@@ -1,186 +1,193 @@
-﻿# ðŸ• Hourly Timer Integration
+# 🕐 Hourly Timer Integration for Home Assistant
 
 ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
 ![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2023.1+-blue.svg)
 
-××™× ×˜×’×¨×¦×™×” ×ž×•×ª××ž×ª ××™×©×™×ª ×œ-Home Assistant ×”×ž××¤×©×¨×ª ×©×œ×™×˜×” ×‘×™×©×•×™×•×ª ×‘××ž×¦×¢×•×ª ×˜×™×™×ž×¨ ×—×–×•×ª×™ ×ž×¢×’×œ×™.
+A custom Home Assistant integration that provides visual timer control for any supported entity (switches, lights, fans, etc.) through a circular interactive card.
 
 ---
 
-## âœ¨ ×ª×›×•× ×•×ª
+## ✨ Features
 
-- ðŸŽ¯ **×˜×™×™×ž×¨ ×—×–×•×ª×™ ×ž×¢×’×œ×™** - ×›×¨×˜×™×¡ ×’×¨×¤×™ ××™× ×˜×¨××§×˜×™×‘×™ ×¢× ×ª×ž×™×›×” ×‘-RTL
-- âš¡ **×ª×ž×™×›×” ×‘×™×©×•×™×•×ª ×ž×¨×•×‘×•×ª** - ×ž×ª×’×™×, ×ª××•×¨×”, ×ž××•×•×¨×¨×™× ×•×ž×–×’× ×™×
-- ðŸ”„ **××•×˜×•×ž×¦×™×” ××•×˜×•×ž×˜×™×ª** - ×™×¦×™×¨×ª ××•×˜×•×ž×¦×™×” ×ž×•×›× ×” ×œ×©×™×ž×•×©
-- ðŸŒ **×ª×ž×™×›×” ×‘×¢×‘×¨×™×ª** - ×ž×ž×©×§ ×ž×œ× ×‘×¢×‘×¨×™×ª
-- ðŸ“¦ **×ª×•×× HACS** - ×”×ª×§× ×” ×•× ×™×”×•×œ ×§×œ ×“×¨×š HACS
+- 🎯 **Circular Visual Timer** - Interactive card with slider and quick action buttons
+- ⚡ **Wide Support** - Works with switch, light, fan, and climate entities
+- 🔄 **Fully Automatic** - No external automations needed - everything handled internally
+- 🌐 **Multi-language** - English and Hebrew translations included
+- 📱 **Mobile Friendly** - Responsive design for mobile devices
+- 🎛️ **Slider Control** - Range from 0-1440 minutes (24 hours)
+- ⚡ **Quick Actions** - Preset buttons (15, 30, 60 minutes)
+- 🔘 **Reset Button** - Instant reset functionality
 
 ---
 
-## ðŸ“¦ ×”×ª×§× ×”
+## 📦 Installation
 
-### ×“×¨×š HACS (×ž×•×ž×œ×¥)
+### Via HACS (Recommended)
 
-1. ×¤×ª×— ××ª HACS ×‘×ž×ž×©×§ Home Assistant
-2. ×œ×—×¥ ×¢×œ â‹® (×©×œ×•×© × ×§×•×“×•×ª) ×‘×¤×™× ×” ×”×™×ž× ×™×ª ×”×¢×œ×™×•× ×”
-3. ×‘×—×¨ **Custom repositories**
-4. ×”×•×¡×£ ××ª ×”×›×ª×•×‘×ª:
+1. Open HACS in Home Assistant
+2. Click ⋮ (three dots) in the top right corner
+3. Select **Custom repositories**
+4. Add this repository:
    ```
    https://github.com/hod25/hourly-timer-integration
    ```
-5. ×‘×—×¨ **Integration** ×›×§×˜×’×•×¨×™×”
-6. ×œ×—×¥ ×¢×œ **Add**
-7. ×—×¤×© "Hourly Timer" ×•×”×ª×§×Ÿ
-8. ××ª×—×œ ××ª Home Assistant
+5. Select **Integration** as category
+6. Click **Add**
+7. Search for "Hourly Timer" and install
+8. Restart Home Assistant
 
-### ×”×ª×§× ×” ×™×“× ×™×ª
+### Manual Installation
 
-1. ×”×¢×ª×§ ××ª ×”×ª×™×§×™×™×” `custom_components/hourly_timer` ×œ×ª×™×§×™×™×ª `custom_components` ×©×œ×š
-2. ×”×¢×ª×§ ××ª ×”×§×•×‘×¥ `www/hourly-timer-card.js` ×œ×ª×™×§×™×™×ª `www`
-3. ×”×•×¡×£ ××ª ×”×©×•×¨×” ×”×‘××” ×œ-`configuration.yaml`:
+1. Copy the `custom_components/hourly_timer` folder to your `/config/custom_components/` directory
+2. Copy `www/hourly-timer-card.js` to your `/config/www/` directory
+3. Add the following to your `configuration.yaml`:
    ```yaml
    lovelace:
      resources:
        - url: /local/hourly-timer-card.js
          type: module
    ```
-4. ××ª×—×œ ××ª Home Assistant
+4. Restart Home Assistant
 
 ---
 
-## ðŸš€ ×©×™×ž×•×©
+## 🚀 Quick Start
 
-### ×”×’×“×¨×ª ××™× ×˜×’×¨×¦×™×”
+### 1. Add Integration
 
-1. ×¢×‘×•×¨ ×œ-**×”×’×“×¨×•×ª** â†’ **×ž×›×©×™×¨×™× ×•×©×™×¨×•×ª×™×**
-2. ×œ×—×¥ ×¢×œ **+ ×”×•×¡×£ ××™× ×˜×’×¨×¦×™×”**
-3. ×—×¤×© **Hourly Timer**
-4. ×‘×—×¨ ×™×©×•×ª ×œ×©×œ×™×˜×” (switch, light, fan, climate)
-5. ×”××™× ×˜×’×¨×¦×™×” ×ª×™×¦×•×¨:
-   - `input_number.[device_name]_duration` - ×©×œ×™×˜×” ×‘×–×ž×Ÿ ×”×˜×™×™×ž×¨
-   - **×œ×•×’×™×§×” ×¤× ×™×ž×™×ª** ×©×ž×˜×¤×œ×ª ×‘×”×¤×¢×œ×” ×•×›×™×‘×•×™ ××•×˜×•×ž×˜×™
-   - **×œ× ×¦×¨×™×š ××•×˜×•×ž×¦×™×•×ª ×—×™×¦×•× ×™×•×ª!** ×”×›×œ ×¢×•×‘×“ ×ž×¢×¦×ž×•
+1. Go to **Settings** → **Devices & Services**
+2. Click **+ Add Integration**
+3. Search for **Hourly Timer**
+4. Select an entity to control (switch, light, fan, climate)
+5. Done! The integration creates:
+   - `input_number.[device_name]_duration` - Timer duration control
+   - Internal logic handles everything automatically
 
-### ×”×•×¡×¤×ª ×›×¨×˜×™×¡ ×’×¨×¤×™
+### 2. Add Card to Dashboard
 
-1. ×¢×¨×•×š ××ª ×œ×•×— ×”×‘×§×¨×” (Dashboard)
-2. ×œ×—×¥ ×¢×œ **+ ×”×•×¡×£ ×›×¨×˜×™×¡**
-3. ×‘×—×¨ **Manual** ×•×‘ paste ××ª ×”×§×•×“:
+1. Edit your dashboard
+2. Click **+ Add Card**
+3. Select **Manual** and paste:
    ```yaml
    type: custom:hourly-timer-card
    entity: input_number.device_name_duration
-   title: ×˜×™×™×ž×¨ - ×©× ×”×ž×›×©×™×¨
+   title: Device Timer
    ```
 
 ---
 
-## ðŸŽ¨ ×“×•×’×ž××•×ª ×©×™×ž×•×©
+## 💡 Usage Examples
 
-### ×“×•×“ ×—×©×ž×œ×™
+### Electric Boiler
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.boiler_duration
-title: ×˜×™×™×ž×¨ ×“×•×“ ×—×©×ž×œ×™
+title: 🔥 Boiler Timer
 ```
 
-### ×ª××•×¨×” ×—×™×¦×•× ×™×ª
+### Garden Lights
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.garden_light_duration
-title: ×˜×™×™×ž×¨ ×ª××•×¨×”
+title: 💡 Garden Lights
 ```
 
-### ×ž××•×•×¨×¨
+### Fan
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.fan_duration
-title: ×˜×™×™×ž×¨ ×ž××•×•×¨×¨
+title: 🌀 Fan Timer
 ```
 
 ---
 
-## ðŸ›  ×ª×¦×•×¨×” ×ž×ª×§×“×ž×ª
+## 🎯 How It Works
 
-### ×©×™× ×•×™ ×˜×•×•×— ×–×ž× ×™×
+```
+User sets value in card
+       ↓
+input_number changes
+       ↓
+Integration detects change
+       ↓
+Turns entity ON
+       ↓
+Waits X minutes
+       ↓
+Turns entity OFF
+       ↓
+Resets to 0
+```
 
-× ×™×ª×Ÿ ×œ×©× ×•×ª ××ª ×”×˜×•×•×— ×”×ž×§×¡×™×ž×œ×™ ×‘×§×•×‘×¥ `const.py`:
+**Everything happens internally - user just needs to add the integration and use the card!**
 
+---
+
+## 🛠️ Configuration
+
+### Changing Maximum Duration
+
+Edit `const.py`:
 ```python
-MAX_DURATION = 1440  # 24 ×©×¢×•×ª ×‘×“×§×•×ª
+MAX_DURATION = 1440  # 24 hours in minutes
 ```
 
-### ×”×ª××ž×ª ×›×¨×˜×™×¡ ×’×¨×¤×™
+### Customizing Card Colors
 
-×”×›×¨×˜×™×¡ ×”×’×¨×¤×™ ×ª×•×ž×š ×‘×”×ª××ž×” ××™×©×™×ª ×“×¨×š CSS ×ž×©×ª× ×™×:
-
+Edit `www/hourly-timer-card.js`:
 ```css
---primary-color: #03a9f4;
---primary-text-color: #212121;
---card-background-color: #ffffff;
+--primary-color: #03a9f4;        /* Primary color */
+--primary-text-color: #212121;   /* Text color */
+--card-background-color: #ffffff; /* Background */
 ```
 
 ---
 
-## ðŸ“‹ ×“×¨×™×©×•×ª
+## 📋 Requirements
 
-- Home Assistant 2023.1.0 ×•×ž×¢×œ×”
-- HACS (××•×¤×¦×™×•× ×œ×™, ××š ×ž×•×ž×œ×¥)
-- ×“×¤×“×¤×Ÿ ×¢× ×ª×ž×™×›×” ×‘-ES6
-
----
-
-## ðŸ¤ ×ª×¨×•×ž×”
-
-×ª×¨×•×ž×•×ª ×ž×ª×§×‘×œ×•×ª ×‘×‘×¨×›×”! ×× ×:
-
-1. Fork ××ª ×”×¤×¨×•×™×§×˜
-2. ×¦×•×¨ branch ×—×“×© (`git checkout -b feature/AmazingFeature`)
-3. Commit ××ª ×”×©×™× ×•×™×™× (`git commit -m 'Add some AmazingFeature'`)
-4. Push ×œ-branch (`git push origin feature/AmazingFeature`)
-5. ×¤×ª×— Pull Request
+- Home Assistant 2023.1.0 or newer
+- HACS (optional, but recommended)
+- Modern browser with ES6 support
 
 ---
 
-## ðŸ“ ×¨×™×©×™×•×Ÿ
+## 🤝 Contributing
 
-×¤×¨×•×™×§×˜ ×–×” ×ž×•×¤×¥ ×ª×—×ª ×¨×™×©×™×•×Ÿ MIT. ×¨××” `LICENSE` ×œ×¤×¨×˜×™× × ×•×¡×¤×™×.
+Contributions are welcome! Please:
 
----
-
-## ðŸ’¡ ×ª×ž×™×›×”
-
-×× × ×ª×§×œ×ª ×‘×‘×¢×™×” ××• ×©×™×© ×œ×š ×”×¦×¢×” ×œ×©×™×¤×•×¨:
-
-- ×¤×ª×— [Issue](https://github.com/hod25/hourly-timer-integration/issues)
-- ×©×œ×— ×©××œ×” ×‘[Discussions](https://github.com/hod25/hourly-timer-integration/discussions)
+1. Fork the repository
+2. Create a new branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ---
 
-## ðŸŽ¯ ×©×™×ž×•×©×™× × ×¤×•×¦×™×
+## 📝 License
 
-- âš¡ ×“×•×“ ×—×©×ž×œ×™
-- ðŸ’¡ ×ª××•×¨×” (×¤× ×™×ž×™×ª/×—×™×¦×•× ×™×ª)
-- ðŸŒ€ ×ž××•×•×¨×¨×™×
-- â„ï¸ ×ž×–×’× ×™×
-- ðŸ’¦ ×ž×¢×¨×›×•×ª ×”×©×§×™×”
-- ðŸ”Œ ×›×œ ×ž×›×©×™×¨ ×—×©×ž×œ×™ ×¢× ×ž×ª×’
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## ðŸ“¸ ×¦×™×œ×•×ž×™ ×ž×¡×š
+## 💡 Support
 
-_×”×•×¡×£ ×›××Ÿ ×¦×™×œ×•×ž×™ ×ž×¡×š ×©×œ ×”×›×¨×˜×™×¡ ×”×’×¨×¤×™_
+If you encounter an issue or have a suggestion:
 
----
-
-## ðŸ™ ×ª×•×“×•×ª
-
-×ª×•×“×” ×œ:
-- [Home Assistant](https://www.home-assistant.io/) ×¢×œ ×”×¤×œ×˜×¤×•×¨×ž×” ×”×ž×“×”×™×ž×”
-- [HACS](https://hacs.xyz/) ×¢×œ × ×™×”×•×œ ×”××™× ×˜×’×¨×¦×™×•×ª
-- ×”×§×”×™×œ×” ×”×¢×‘×¨×™×ª ×©×œ Home Assistant
+- Open an [Issue](https://github.com/hod25/hourly-timer-integration/issues)
+- Start a [Discussion](https://github.com/hod25/hourly-timer-integration/discussions)
 
 ---
 
-**×¢×©×•×™ ×¢× â¤ï¸ ×œ×§×”×™×œ×ª Home Assistant ×”×¢×‘×¨×™×ª**
+## 🎯 Common Use Cases
+
+- ⚡ Electric boiler
+- 💡 Lighting (indoor/outdoor)
+- 🌀 Fans
+- ❄️ Air conditioning
+- 💦 Irrigation systems
+- 🔌 Any switchable device
+
+---
+
+**Made with ❤️ for the Home Assistant Community**

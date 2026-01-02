@@ -2,36 +2,36 @@
 
 ![Hourly Timer Logo](https://img.shields.io/badge/Home%20Assistant-Integration-blue)
 
-## תיאור
+## Description
 
-אינטגרציה חכמה ל-Home Assistant המאפשרת שליטה בכל ישות תומכת (מתגים, תאורה, מאווררים וכו') באמצעות טיימר חזותי מעגלי עם ממשק עברי מלא.
+A smart Home Assistant integration that enables control of any supported entity (switches, lights, fans, etc.) through a circular visual timer with full Hebrew and English interface.
 
-## תכונות עיקריות
+## Key Features
 
-- 🎯 **טיימר חזותי מעגלי** - כרטיס אינטראקטיבי עם slider ולחצני קיצור
-- ⚡ **תמיכה רחבה** - switch, light, fan, climate
-- 🔄 **אוטומציה אוטומטית** - נוצרת אוטומציה מלאה עם ההתקנה
-- 🌐 **עברית מלאה** - כולל תמיכה ב-RTL
-- 📱 **ידידותי לנייד** - תצוגה מותאמת למכשירים ניידים
+- 🎯 **Circular Visual Timer** - Interactive card with slider and quick action buttons
+- ⚡ **Wide Support** - switch, light, fan, climate
+- 🔄 **Fully Automatic** - Complete automation created on setup
+- 🌐 **Multi-language** - Full Hebrew and English support
+- 📱 **Mobile Optimized** - Responsive design for mobile devices
 
-## שימושים נפוצים
+## Common Use Cases
 
-- דוד חשמלי ⚡
-- תאורה פנימית/חיצונית 💡
-- מאווררים 🌀
-- מזגנים ❄️
-- השקיה 💦
-- כל מכשיר חשמלי 🔌
+- Electric boiler ⚡
+- Indoor/outdoor lighting 💡
+- Fans 🌀
+- Air conditioning ❄️
+- Irrigation 💦
+- Any switchable device 🔌
 
-## דרישות
+## Requirements
 
-- Home Assistant 2023.1.0 ומעלה
-- HACS (מומלץ)
+- Home Assistant 2023.1.0 or newer
+- HACS (recommended)
 
-## תמיכה
+## Support
 
-אם נתקלת בבעיה או שיש לך הצעה לשיפור, אנא פתח [Issue](https://github.com/hod25/hourly-timer-integration/issues).
+If you encounter an issue or have a suggestion, please open an [Issue](https://github.com/hod25/hourly-timer-integration/issues).
 
 ---
 
-**נוצר עם ❤️ לקהילת Home Assistant העברית**
+**Made with ❤️ for the Home Assistant Community**

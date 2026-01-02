@@ -1,222 +1,222 @@
-﻿# ðŸ“– ×ž×“×¨×™×š ×”×ª×§× ×” ×•×©×™×ž×•×© - Hourly Timer Integration
+# 📖 Installation & Usage Guide - Hourly Timer Integration
 
-## ðŸ“¥ ×©×œ×‘ 1: ×”×ª×§× ×ª ×”××™× ×˜×’×¨×¦×™×”
+## 📥 Step 1: Installation
 
-### ××•×¤×¦×™×” ×': ×“×¨×š HACS (×ž×•×ž×œ×¥)
+### Option A: Via HACS (Recommended)
 
-1. **×¤×ª×— ××ª HACS**
-   - ×¢×‘×•×¨ ×œ×ž×ž×©×§ Home Assistant ×©×œ×š
-   - ×‘×ª×¤×¨×™×˜ ×”×¦×“, ×œ×—×¥ ×¢×œ **HACS**
+1. **Open HACS**
+   - Go to your Home Assistant interface
+   - Click on **HACS** in the sidebar
 
-2. **×”×•×¡×£ repository ×ž×•×ª×× ××™×©×™×ª**
-   - ×œ×—×¥ ×¢×œ ×”×›×¤×ª×•×¨ â‹® (×©×œ×•×© × ×§×•×“×•×ª) ×‘×¤×™× ×” ×”×™×ž× ×™×ª ×”×¢×œ×™×•× ×”
-   - ×‘×—×¨ **Custom repositories**
+2. **Add Custom Repository**
+   - Click the ⋮ (three dots) button in the top right corner
+   - Select **Custom repositories**
 
-3. **×”×•×¡×£ ××ª ×”×›×ª×•×‘×ª**
-   - ×‘×©×“×” Repository ×”×“×‘×§:
+3. **Add the Repository**
+   - In the Repository field, paste:
      ```
      https://github.com/hod25/hourly-timer-integration
      ```
-   - ×‘×—×¨ ×§×˜×’×•×¨×™×”: **Integration**
-   - ×œ×—×¥ **Add**
+   - Select category: **Integration**
+   - Click **Add**
 
-4. **×”×ª×§×Ÿ ××ª ×”××™× ×˜×’×¨×¦×™×”**
-   - ×—×¤×© "Hourly Timer" ×‘×¨×©×™×ž×”
-   - ×œ×—×¥ ×¢×œ ×”××™× ×˜×’×¨×¦×™×”
-   - ×œ×—×¥ **Download**
-   - **××ª×—×œ ××ª Home Assistant**
+4. **Install the Integration**
+   - Search for "Hourly Timer" in the list
+   - Click on the integration
+   - Click **Download**
+   - **Restart Home Assistant**
 
-### ××•×¤×¦×™×” ×‘': ×”×ª×§× ×” ×™×“× ×™×ª
+### Option B: Manual Installation
 
-1. **×”×•×¨×“ ××ª ×”×§×‘×¦×™×**
-   - ×”×•×¨×“ ××ª ×›×œ ×”×ª×™×§×™×™×” ×ž-GitHub
+1. **Download the Files**
+   - Download the entire folder from GitHub
    
-2. **×”×¢×ª×§ ×œ×ª×™×§×™×™×ª custom_components**
-   - ×”×¢×ª×§ ××ª `custom_components/hourly_timer` ×œ:
+2. **Copy to custom_components Directory**
+   - Copy `custom_components/hourly_timer` to:
      ```
      /config/custom_components/hourly_timer/
      ```
 
-3. **×”×¢×ª×§ ××ª ×”×›×¨×˜×™×¡ ×”×’×¨×¤×™**
-   - ×”×¢×ª×§ ××ª `www/hourly-timer-card.js` ×œ:
+3. **Copy the Frontend Card**
+   - Copy `www/hourly-timer-card.js` to:
      ```
      /config/www/hourly-timer-card.js
      ```
 
-4. **×”×•×¡×£ resource ×œ-Lovelace**
-   - ×¢×‘×•×¨ ×œ-**×”×’×“×¨×•×ª** â†’ **×œ×•×—×•×ª ×‘×§×¨×”** â†’ **â‹®** â†’ **×ž×©××‘×™×**
-   - ×œ×—×¥ **+ ×”×•×¡×£ ×ž×©××‘**
+4. **Add Resource to Lovelace**
+   - Go to **Settings** → **Dashboards** → **⋮** → **Resources**
+   - Click **+ Add Resource**
    - URL: `/local/hourly-timer-card.js`
-   - ×¡×•×’ ×ž×©××‘: **JavaScript Module**
-   - ×©×ž×•×¨
+   - Resource type: **JavaScript Module**
+   - Save
 
-5. **××ª×—×œ ××ª Home Assistant**
+5. **Restart Home Assistant**
 
 ---
 
-## ðŸŽ¯ ×©×œ×‘ 2: ×”×•×¡×¤×ª ×˜×™×™×ž×¨ ×œ×ž×›×©×™×¨
+## 🎯 Step 2: Adding a Timer to a Device
 
-### ×™×¦×™×¨×ª ×˜×™×™×ž×¨ ×—×“×©
+### Creating a New Timer
 
-1. **×¢×‘×•×¨ ×œ×”×’×“×¨×•×ª**
-   - **×”×’×“×¨×•×ª** â†’ **×ž×›×©×™×¨×™× ×•×©×™×¨×•×ª×™×**
+1. **Go to Settings**
+   - **Settings** → **Devices & Services**
 
-2. **×”×•×¡×£ ××™× ×˜×’×¨×¦×™×”**
-   - ×œ×—×¥ **+ ×”×•×¡×£ ××™× ×˜×’×¨×¦×™×”**
-   - ×—×¤×© **Hourly Timer**
+2. **Add Integration**
+   - Click **+ Add Integration**
+   - Search for **Hourly Timer**
 
-3. **×‘×—×¨ ×™×©×•×ª**
-   - ×‘×—×¨ ××ª ×”×™×©×•×ª ×©×‘×¨×¦×•× ×š ×œ×©×œ×•×˜ ×‘×”
-   - ×ª×•×ž×š ×‘: `switch`, `light`, `fan`, `climate`
-   - ×“×•×’×ž×”: `switch.boiler`
+3. **Select Entity**
+   - Choose the entity you want to control
+   - Supports: `switch`, `light`, `fan`, `climate`
+   - Example: `switch.boiler`
 
-4. **×¡×™×•× ×”×”×’×“×¨×”**
-   - ×”××™× ×˜×’×¨×¦×™×” ×ª×™×¦×•×¨ ××•×˜×•×ž×˜×™×ª:
-     - âœ… `input_number.boiler_duration` - ×™×©×•×ª ×œ×©×œ×™×˜×” ×‘×–×ž×Ÿ ×”×˜×™×™×ž×¨
-     - âœ… **×”×›×œ ×¢×•×‘×“ ××•×˜×•×ž×˜×™!** ×œ× ×¦×¨×™×š ×œ×”×•×¡×™×£ ××•×˜×•×ž×¦×™×•×ª ×™×“× ×™×ª
+4. **Setup Complete**
+   - The integration will automatically create:
+     - ✅ `input_number.boiler_duration` - Entity to control timer duration
+     - ✅ **Everything works automatically!** No need to add manual automations
    
-   **××™×š ×–×” ×¢×•×‘×“?**
-   - ×›×©×ž×©× ×™× ××ª ×”×¢×¨×š ×‘-input_number (×“×¨×š ×”×›×¨×˜×™×¡ ×”×’×¨×¤×™):
-     - ×”×™×©×•×ª × ×“×œ×§×ª ×ž×™×™×“×™×ª âš¡
-     - ×˜×™×™×ž×¨ ×¤× ×™×ž×™ ×ž×ª×—×™×œ ×œ×¡×¤×•×¨ â±ï¸
-     - ××—×¨×™ X ×“×§×•×ª - ×”×™×©×•×ª × ×›×‘×™×ª ××•×˜×•×ž×˜×™×ª ðŸ”„
-     - ×”×¢×¨×š ×—×•×–×¨ ×œ-0 âœ…
+   **How does it work?**
+   - When you change the value in input_number (via the card):
+     - Entity turns on immediately ⚡
+     - Internal timer starts counting ⏱️
+     - After X minutes - entity turns off automatically 🔄
+     - Value resets to 0 ✅
 
 ---
 
-## ðŸ–¼ ×©×œ×‘ 3: ×”×•×¡×¤×ª ×›×¨×˜×™×¡ ×’×¨×¤×™
+## 🖼 Step 3: Adding the Card
 
-### ×”×•×¡×¤×” ×œ×œ×•×— ×‘×§×¨×”
+### Add to Dashboard
 
-1. **×¢×¨×•×š ××ª ×œ×•×— ×”×‘×§×¨×”**
-   - ×¤×ª×— ××ª ×œ×•×— ×”×‘×§×¨×” ×”×¨×¦×•×™
-   - ×œ×—×¥ ×¢×œ â‹® (×©×œ×•×© × ×§×•×“×•×ª) â†’ **×¢×¨×•×š ×œ×•×— ×‘×§×¨×”**
+1. **Edit Dashboard**
+   - Open the desired dashboard
+   - Click ⋮ (three dots) → **Edit Dashboard**
 
-2. **×”×•×¡×£ ×›×¨×˜×™×¡ ×—×“×©**
-   - ×œ×—×¥ **+ ×”×•×¡×£ ×›×¨×˜×™×¡**
-   - ×’×œ×•×œ ×œ×ž×˜×” ×•×‘×—×¨ **Manual** (×™×“× ×™)
+2. **Add New Card**
+   - Click **+ Add Card**
+   - Scroll down and select **Manual**
 
-3. **×”×“×‘×§ ××ª ×”×§×•×“**
+3. **Paste the Code**
    ```yaml
    type: custom:hourly-timer-card
    entity: input_number.boiler_duration
-   title: ×˜×™×™×ž×¨ ×“×•×“
+   title: Boiler Timer
    ```
 
-4. **×©×ž×•×¨**
-   - ×œ×—×¥ **×©×ž×•×¨**
-   - ×¦× ×ž×ž×¦×‘ ×¢×¨×™×›×”
+4. **Save**
+   - Click **Save**
+   - Exit edit mode
 
 ---
 
-## ðŸ’¡ ×“×•×’×ž××•×ª ×§×•×“ ×ž×•×›× ×•×ª
+## 💡 Ready-to-Use Examples
 
-### ×“×•×“ ×—×©×ž×œ×™
+### Electric Boiler
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.boiler_duration
-title: ðŸ”¥ ×˜×™×™×ž×¨ ×“×•×“ ×—×©×ž×œ×™
+title: 🔥 Boiler Timer
 ```
 
-### ×ž××•×•×¨×¨
+### Fan
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.fan_duration
-title: ðŸŒ€ ×˜×™×™×ž×¨ ×ž××•×•×¨×¨
+title: 🌀 Fan Timer
 ```
 
-### ×ª××•×¨×” ×—×™×¦×•× ×™×ª
+### Outdoor Lights
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.garden_light_duration
-title: ðŸ’¡ ×ª××•×¨×ª ×’×™× ×”
+title: 💡 Garden Lights
 ```
 
-### ×ž×–×’×Ÿ
+### Air Conditioner
 ```yaml
 type: custom:hourly-timer-card
 entity: input_number.ac_duration
-title: â„ï¸ ×˜×™×™×ž×¨ ×ž×–×’×Ÿ
+title: ❄️ AC Timer
 ```
 
 ---
 
-## ðŸ”§ ×¤×ª×¨×•×Ÿ ×‘×¢×™×•×ª × ×¤×•×¦×•×ª
+## 🔧 Troubleshooting
 
-### ×”×›×¨×˜×™×¡ ×œ× ×ž×•×¤×™×¢
+### Card Not Showing
 
-1. **×‘×“×•×§ ×©×”×ž×©××‘ × ×•×¡×£**
-   - ×¢×‘×•×¨ ×œ: ×”×’×“×¨×•×ª â†’ ×œ×•×—×•×ª ×‘×§×¨×” â†’ ×ž×©××‘×™×
-   - ×•×•×“× ×©×§×™×™×: `/local/hourly-timer-card.js`
+1. **Check Resource is Added**
+   - Go to: Settings → Dashboards → Resources
+   - Verify exists: `/local/hourly-timer-card.js`
 
-2. **× ×§×” cache ×©×œ ×”×“×¤×“×¤×Ÿ**
+2. **Clear Browser Cache**
    - Ctrl + Shift + R (Windows)
    - Cmd + Shift + R (Mac)
 
-3. **×‘×“×•×§ ×‘-Developer Tools**
-   - F12 â†’ Console
-   - ×—×¤×© ×©×’×™××•×ª JavaScript
+3. **Check Developer Tools**
+   - F12 → Console
+   - Look for JavaScript errors
 
-### ×”××•×˜×•×ž×¦×™×” ×œ× ×¢×•×‘×“×ª
+### Timer Not Working
 
-**×©×™× ×œ×‘:** ×”××™× ×˜×’×¨×¦×™×” ×¢×•×‘×“×ª ×‘×œ×™ ××•×˜×•×ž×¦×™×•×ª ×—×™×¦×•× ×™×•×ª! ×”×›×œ ×ž× ×•×”×œ ×¤× ×™×ž×™×ª.
+**Note:** The integration works without external automations! Everything is managed internally.
 
-1. **×‘×“×•×§ ×©-input_number ×§×™×™×**
-   - ×¢×‘×•×¨ ×œ: ×”×’×“×¨×•×ª â†’ ×ž×›×©×™×¨×™× ×•×©×™×¨×•×ª×™× â†’ ×™×©×•×™×•×ª
-   - ×—×¤×©: `input_number.[device_name]_duration`
+1. **Check input_number Exists**
+   - Go to: Settings → Devices & Services → Entities
+   - Search: `input_number.[device_name]_duration`
 
-2. **×‘×“×•×§ ××ª ×”×œ×•×’×™×**
-   - Developer Tools â†’ Logs
-   - ×—×¤×© ×”×•×“×¢×•×ª ×ž-`hourly_timer`
+2. **Check Logs**
+   - Developer Tools → Logs
+   - Look for messages from `hourly_timer`
 
-3. **××ª×—×œ ××ª Home Assistant**
-   - ×œ×¤×¢×ž×™× × ×“×¨×© ××ª×—×•×œ ××—×¨×™ ×”×ª×§× ×” ×¨××©×•× ×™×ª
+3. **Restart Home Assistant**
+   - Sometimes a restart is needed after initial installation
 
-### ×”×›×¨×˜×™×¡ ×œ× ×ž×’×™×‘
+### Card Not Responding
 
-1. **×¨×¢× ×Ÿ ××ª ×”×“×£**
-   - F5 ××• Ctrl + R
+1. **Refresh the Page**
+   - F5 or Ctrl + R
 
-2. **×‘×“×•×§ ××ª ×”-entity ID**
-   - ×•×•×“× ×©×”-entity ID × ×›×•×Ÿ ×‘-YAML
+2. **Check Entity ID**
+   - Verify the entity ID is correct in YAML
 
-3. **×‘×“×•×§ permissions**
-   - ×•×•×“× ×©×™×© ×œ×š ×”×¨×©××•×ª ×œ×©× ×•×ª ××ª ×”-input_number
+3. **Check Permissions**
+   - Ensure you have permissions to change the input_number
 
 ---
 
-## ðŸŽ¨ ×”×ª××ž×” ××™×©×™×ª
+## 🎨 Customization
 
-### ×©×™× ×•×™ ×¦×‘×¢×™×
+### Change Colors
 
-×¢×¨×•×š ××ª ×”×§×•×‘×¥ `www/hourly-timer-card.js` ×•×©× ×”:
+Edit the file `www/hourly-timer-card.js` and change:
 
 ```css
---primary-color: #03a9f4;        /* ×¦×‘×¢ ×¨××©×™ */
---primary-text-color: #212121;   /* ×¦×‘×¢ ×˜×§×¡×˜ */
---card-background-color: #ffffff; /* ×¨×§×¢ ×›×¨×˜×™×¡ */
+--primary-color: #03a9f4;        /* Primary color */
+--primary-text-color: #212121;   /* Text color */
+--card-background-color: #ffffff; /* Card background */
 ```
 
-### ×©×™× ×•×™ ×˜×•×•×— ×–×ž× ×™×
+### Change Time Range
 
-×¢×¨×•×š ××ª ×”×§×•×‘×¥ `const.py`:
+Edit the file `const.py`:
 
 ```python
-MAX_DURATION = 1440  # ×©× ×” ×œ-720 ×¢×‘×•×¨ 12 ×©×¢×•×ª
-MIN_DURATION = 0     # ×ž×™× ×™×ž×•×
-STEP = 1            # ×§×¤×™×¦×•×ª (×‘×“×§×•×ª)
+MAX_DURATION = 1440  # Change to 720 for 12 hours
+MIN_DURATION = 0     # Minimum
+STEP = 1            # Step size (in minutes)
 ```
 
 ---
 
-## ðŸ“ž ×ª×ž×™×›×”
+## 📞 Support
 
-× ×ª×§×œ×ª ×‘×‘×¢×™×”? ×™×© ×œ×š ×©××œ×”?
+Need help?
 
-- ðŸ’¬ ×¤×ª×— [Issue ×‘-GitHub](https://github.com/hod25/hourly-timer-integration/issues)
-- ðŸ“– ×§×¨× ××ª [×”×”×ž×¡×ž×›×™× ×”×ž×œ××™×](https://github.com/hod25/hourly-timer-integration)
-- ðŸ¤ ×”×¦×˜×¨×£ ×œ[×“×™×•× ×™×](https://github.com/hod25/hourly-timer-integration/discussions)
+- 💬 Open an [Issue on GitHub](https://github.com/hod25/hourly-timer-integration/issues)
+- 📖 Read the [Full Documentation](https://github.com/hod25/hourly-timer-integration)
+- 🤝 Join the [Discussions](https://github.com/hod25/hourly-timer-integration/discussions)
 
 ---
 
-**×‘×”×¦×œ×—×”! ðŸŽ‰**
+**Good luck! 🎉**
