@@ -56,7 +56,7 @@ class HourlyTimerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 await self._create_input_number(self.hass, device_name)
                 
                 return self.async_create_entry(
-                    title=f"טיימר - {device_name}",
+                    title=f"Timer - {device_name}",
                     data={
                         CONF_ENTITY_ID: entity_id,
                         CONF_DEVICE_NAME: device_name,
@@ -90,12 +90,12 @@ class HourlyTimerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "input_number",
                 "create",
                 {
-                    "name": f"{device_name} זמן טיימר",
+                    "name": f"{device_name} Timer Duration",
                     "min": MIN_DURATION,
                     "max": MAX_DURATION,
                     "step": STEP,
                     "initial": DEFAULT_DURATION,
-                    "unit_of_measurement": "דקות",
+                    "unit_of_measurement": "minutes",
                     "mode": "slider",
                     "icon": "mdi:timer",
                 },
