@@ -1,66 +1,55 @@
 """The Hourly Timer integration."""
+
 from __future__ import annotations
 
-import logging
-from typing import Any
+from pathlib import Path
 
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN, CONF_ENTITY_ID, CONF_DEVICE_NAME
-from .timer_logic import HourlyTimerLogic
+from .const import CARD_FILENAME, CARD_URL_BASE, CONF_ENTITY_ID, DOMAIN, PLATFORMS
+from .timer_logic import HourlyTimer
 
-_LOGGER = logging.getLogger(__name__)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-PLATFORMS: list[Platform] = []
+type HourlyTimerConfigEntry = ConfigEntry[HourlyTimer]
 
 
-async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
-    """Set up the Hourly Timer component."""
-    hass.data.setdefault(DOMAIN, {})
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the Lovelace card and load it on every dashboard."""
+    integration = await async_get_integration(hass, DOMAIN)
+    card_path = Path(__file__).parent / "frontend" / CARD_FILENAME
+    url = f"{CARD_URL_BASE}/{CARD_FILENAME}"
+
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(url, str(card_path), cache_headers=False)]
+    )
+    # The version query string makes browsers fetch the new card after an update.
+    add_extra_js_url(hass, f"{url}?v={integration.version}")
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Hourly Timer from a config entry."""
-    hass.data.setdefault(DOMAIN, {})
-    
-    entity_id = entry.data.get(CONF_ENTITY_ID)
-    device_name = entry.data.get(CONF_DEVICE_NAME)
-    
-    _LOGGER.info(f"Setting up Hourly Timer for {entity_id}")
-    
-    # Create timer logic instance
-    timer_logic = HourlyTimerLogic(hass, entity_id, device_name)
-    
-    # Register listener for input_number changes
-    timer_logic.register_listener()
-    
-    # Store instance
-    hass.data[DOMAIN][entry.entry_id] = {
-        "data": entry.data,
-        "timer_logic": timer_logic,
-    }
-    
+async def async_setup_entry(hass: HomeAssistant, entry: HourlyTimerConfigEntry) -> bool:
+    """Set up a timer from a config entry."""
+    timer = HourlyTimer(hass, entry.entry_id, entry.data[CONF_ENTITY_ID])
+    await timer.async_setup()
+    entry.async_on_unload(timer.async_shutdown)
+    entry.runtime_data = timer
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Unload a config entry."""
-    # Stop timer if running
-    if entry.entry_id in hass.data[DOMAIN]:
-        timer_logic = hass.data[DOMAIN][entry.entry_id].get("timer_logic")
-        if timer_logic:
-            await timer_logic.async_stop_timer()
-    
-    hass.data[DOMAIN].pop(entry.entry_id)
-    return True
+async def async_unload_entry(hass: HomeAssistant, entry: HourlyTimerConfigEntry) -> bool:
+    """Unload a config entry. A running timer is kept and resumed on next load."""
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Handle removal of an entry."""
-    device_name = entry.data.get(CONF_DEVICE_NAME, "")
-    input_number_entity = f"input_number.{device_name}_duration"
-    
-    _LOGGER.info(f"Removing Hourly Timer setup for {input_number_entity}")
+async def async_remove_entry(hass: HomeAssistant, entry: HourlyTimerConfigEntry) -> None:
+    """Delete the persisted timer when the entry is deleted."""
+    await HourlyTimer(hass, entry.entry_id, entry.data[CONF_ENTITY_ID]).async_remove()

@@ -1,11 +1,14 @@
 {
   "domain": "hourly_timer",
-  "name": "Hourly Timer Integration",
-  "version": "2.0.0",
-  "documentation": "https://github.com/hod25/hourly-timer-integration",
-  "dependencies": [],
+  "name": "Hourly Timer",
+  "categories": ["helpers"],
   "codeowners": ["@hod25"],
-  "requirements": [],
   "config_flow": true,
-  "iot_class": "calculated"
+  "dependencies": ["frontend", "http"],
+  "documentation": "https://github.com/hod25/hourly-timer-integration",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/hod25/hourly-timer-integration/issues",
+  "requirements": [],
+  "version": "3.0.0"
 }
