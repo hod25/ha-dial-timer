@@ -1,4 +1,4 @@
-"""Config flow for the Hourly Timer integration."""
+"""Config flow for the Dial Timer integration."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ DATA_SCHEMA = vol.Schema(
 
 
 class HourlyTimerConfigFlow(ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Hourly Timer."""
+    """Handle a config flow for Dial Timer."""
 
     VERSION = 1
 

@@ -1,4 +1,4 @@
-"""Sensor showing when the running timer ends."""
+"""Sensors showing when the timer starts and ends."""
 
 from __future__ import annotations
 
@@ -17,8 +17,10 @@ async def async_setup_entry(
     entry: HourlyTimerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the end time sensor."""
-    async_add_entities([HourlyTimerEndsAtSensor(entry)])
+    """Set up the start and end time sensors."""
+    async_add_entities(
+        [HourlyTimerStartsAtSensor(entry), HourlyTimerEndsAtSensor(entry)]
+    )
 
 
 class HourlyTimerEndsAtSensor(HourlyTimerEntity, SensorEntity):
@@ -33,5 +35,21 @@ class HourlyTimerEndsAtSensor(HourlyTimerEntity, SensorEntity):
 
     @property
     def native_value(self) -> datetime | None:
-        """Return the end time of the running timer."""
+        """Return the end time of the running or scheduled timer."""
         return self.timer.ends_at
+
+
+class HourlyTimerStartsAtSensor(HourlyTimerEntity, SensorEntity):
+    """Timestamp of a scheduled start (unknown when nothing is scheduled)."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:timer-play-outline"
+
+    def __init__(self, entry: HourlyTimerConfigEntry) -> None:
+        """Initialize the sensor."""
+        super().__init__(entry, "starts_at")
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the scheduled start time."""
+        return self.timer.starts_at

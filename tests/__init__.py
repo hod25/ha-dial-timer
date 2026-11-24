@@ -1,1 +1,1 @@
-"""Tests for the Hourly Timer integration."""
+"""Tests for the Dial Timer integration."""

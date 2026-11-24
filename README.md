@@ -1,19 +1,24 @@
-# Hourly Timer for Home Assistant
+<img src="custom_components/hourly_timer/brand/icon.png" alt="" width="72" align="right">
+
+# Dial Timer for Home Assistant
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![Validate](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8%2B-blue.svg)
 
-Turn a device on for a set number of minutes. It turns off on its own when the time is up.
+Turn a device on now or later for a set number of minutes, from a circular dial. It turns off on its own when the time is up.
 Useful for an electric water heater (boiler), fans, garden lights, irrigation, or anything else you tend to forget to turn off.
 
 It includes a dashboard card that shows a live countdown and a dial for setting the time.
 
+> The integration's domain is `hourly_timer` (its original name), so the `hourly_timer.schedule` action and the `custom:hourly-timer-card` card type keep that name.
+
 ## Features
 
 - **No automations needed.** Pick an entity and you get a timer for it.
-- **Survives restarts.** A running timer keeps going after Home Assistant restarts. If the end time passed while Home Assistant was down, the device is turned off as soon as it starts again.
-- **Follows the device.** If you turn the device off by hand, the timer is cancelled.
+- **Now or later.** Turn the device on right away, or schedule it to turn on later, for example in an hour for 45 minutes.
+- **Survives restarts.** Running and scheduled timers keep going after Home Assistant restarts. If the start or end time passed while Home Assistant was down, the device is turned on or off as soon as it starts again.
+- **Follows the device.** If you turn the device off by hand while the timer runs, the timer is cancelled.
 - **Works with** `switch`, `light`, `fan`, `climate` and `input_boolean` entities.
 - **Card included.** The card is loaded automatically, so you don't need to add a resource.
 
@@ -25,7 +30,7 @@ On Home Assistant 2026.11 and newer, HACS is built in as the **Marketplace** (Se
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/hod25/hourly-timer-integration` with the category **Integration**.
-3. Search for **Hourly Timer**, download it, and restart Home Assistant.
+3. Search for **Dial Timer**, download it, and restart Home Assistant.
 
 ### Manual
 
@@ -33,15 +38,16 @@ Copy `custom_components/hourly_timer` into your `/config/custom_components/` fol
 
 ## Setup
 
-1. Go to **Settings → Devices & services → Add integration** and choose **Hourly Timer**.
+1. Go to **Settings → Devices & services → Add integration** and choose **Dial Timer**.
 2. Pick the entity to control, for example `switch.boiler`.
 
-You get two entities. If the controlled entity belongs to a device, they appear on that device's page.
+You get three entities. If the controlled entity belongs to a device, they appear on that device's page.
 
 | Entity | What it does |
 | --- | --- |
-| `number.<name>_timer_duration` | Set it to a number of minutes (1–1440) to turn the device on for that long. Setting it again restarts the countdown, and `0` turns the device off. It goes back to `0` when the timer ends. The `ends_at` attribute holds the end time. |
-| `sensor.<name>_timer_ends` | The time the device will be turned off, or *unknown* when no timer is running. |
+| `number.<name>_timer_duration` | Set it to a number of minutes (1–1440) to turn the device on now for that long. Setting it again restarts the countdown. `0` turns the device off, or cancels a schedule that hasn't started yet. It goes back to `0` when the timer ends. The `starts_at` and `ends_at` attributes hold the times. |
+| `sensor.<name>_timer_starts` | When a scheduled timer will turn the device on, or *unknown* when nothing is scheduled. |
+| `sensor.<name>_timer_ends` | When the device will be turned off, or *unknown* when no timer is running or scheduled. |
 
 ## Dashboard card
 
@@ -51,7 +57,11 @@ entity: number.boiler_timer_duration
 title: Boiler
 ```
 
-The card is a circular slider. Drag the ring to choose a time and release it to start. You can also use the **−/+** buttons or a preset. While the timer runs, the ring shrinks as time passes and the center shows a live countdown and a stop button.
+The card is a circular slider. The ring is a timeline that starts now.
+
+- **Start now:** drag the ring to choose how long, then let go.
+- **Start later:** drag the **▶** handle on the outer ring forward. The start snaps to round clock times (14:00, 14:05…). Drag the ring to change how long it stays on.
+- **−/+** and the presets change how long. While a timer runs or waits, the center shows a live countdown and a stop button that turns it off or cancels the schedule.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -74,6 +84,19 @@ target:
 data:
   value: 45
 ```
+
+To start later, use the `hourly_timer.schedule` action with either `start_in` (minutes from now) or `start_at` (a date and time):
+
+```yaml
+action: hourly_timer.schedule
+target:
+  entity_id: number.boiler_timer_duration
+data:
+  duration: 45
+  start_in: 60
+```
+
+If a timer is running when you schedule a new one, the device is turned off until the new start time.
 
 ## Upgrading from 2.x
 

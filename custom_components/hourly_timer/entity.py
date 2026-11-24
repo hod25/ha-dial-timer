@@ -1,4 +1,4 @@
-"""Base entity for the Hourly Timer integration."""
+"""Base entity for the Dial Timer integration."""
 
 from __future__ import annotations
 
