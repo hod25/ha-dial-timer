@@ -1,14 +1,32 @@
 """Constants for the Hourly Timer integration."""
 
-DOMAIN = "hourly_timer"
-CONF_ENTITY_ID = "entity_id"
-CONF_DEVICE_NAME = "device_name"
+from __future__ import annotations
 
-# Supported domains
-SUPPORTED_DOMAINS = ["switch", "light", "fan", "climate"]
+from typing import Final
 
-# Default values
-DEFAULT_DURATION = 0
-MIN_DURATION = 0
-MAX_DURATION = 1440  # 24 hours in minutes
-STEP = 1
+from homeassistant.const import Platform
+
+DOMAIN: Final = "hourly_timer"
+
+CONF_ENTITY_ID: Final = "entity_id"
+CONF_DEVICE_NAME: Final = "device_name"
+
+PLATFORMS: Final = [Platform.NUMBER, Platform.SENSOR]
+
+# Entity domains that can be controlled by the timer.
+SUPPORTED_DOMAINS: Final = ["switch", "light", "fan", "climate", "input_boolean"]
+
+# Duration limits, in minutes.
+MIN_DURATION: Final = 0
+MAX_DURATION: Final = 1440  # 24 hours
+STEP: Final = 1
+
+# Frontend card, served from inside the integration.
+CARD_FILENAME: Final = "hourly-timer-card.js"
+CARD_URL_BASE: Final = f"/{DOMAIN}"
+
+# Persistent storage for running timers (survives restarts).
+STORAGE_VERSION: Final = 1
+
+ATTR_ENDS_AT: Final = "ends_at"
+ATTR_TARGET_ENTITY: Final = "target_entity"

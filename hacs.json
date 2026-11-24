@@ -1,7 +1,6 @@
 {
-  "name": "Hourly Timer Integration",
+  "name": "Hourly Timer",
   "content_in_root": false,
   "render_readme": true,
-  "domains": ["automation", "input_number"],
-  "homeassistant": "2023.1.0"
+  "homeassistant": "2025.8.0"
 }

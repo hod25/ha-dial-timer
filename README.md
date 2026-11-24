@@ -1,193 +1,91 @@
-# 🕐 Hourly Timer Integration for Home Assistant
+# Hourly Timer for Home Assistant
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
-![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2023.1+-blue.svg)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![Validate](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml)
+![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8%2B-blue.svg)
 
-A custom Home Assistant integration that provides visual timer control for any supported entity (switches, lights, fans, etc.) through a circular interactive card.
+Turn a device on for a set number of minutes. It turns off on its own when the time is up.
+Useful for an electric water heater (boiler), fans, garden lights, irrigation, or anything else you tend to forget to turn off.
 
----
+It includes a dashboard card that shows a live countdown and a dial for setting the time.
 
-## ✨ Features
+## Features
 
-- 🎯 **Circular Visual Timer** - Interactive card with slider and quick action buttons
-- ⚡ **Wide Support** - Works with switch, light, fan, and climate entities
-- 🔄 **Fully Automatic** - No external automations needed - everything handled internally
-- 🌐 **Multi-language** - English and Hebrew translations included
-- 📱 **Mobile Friendly** - Responsive design for mobile devices
-- 🎛️ **Slider Control** - Range from 0-1440 minutes (24 hours)
-- ⚡ **Quick Actions** - Preset buttons (15, 30, 60 minutes)
-- 🔘 **Reset Button** - Instant reset functionality
+- **No automations needed.** Pick an entity and you get a timer for it.
+- **Survives restarts.** A running timer keeps going after Home Assistant restarts. If the end time passed while Home Assistant was down, the device is turned off as soon as it starts again.
+- **Follows the device.** If you turn the device off by hand, the timer is cancelled.
+- **Works with** `switch`, `light`, `fan`, `climate` and `input_boolean` entities.
+- **Card included.** The card is loaded automatically, so you don't need to add a resource.
 
----
+## Installation
 
-## 📦 Installation
+### HACS (recommended)
 
-### Via HACS (Recommended)
+1. In HACS, open the menu (⋮) and choose **Custom repositories**.
+2. Add `https://github.com/hod25/hourly-timer-integration` with the category **Integration**.
+3. Search for **Hourly Timer**, download it, and restart Home Assistant.
 
-1. Open HACS in Home Assistant
-2. Click ⋮ (three dots) in the top right corner
-3. Select **Custom repositories**
-4. Add this repository:
-   ```
-   https://github.com/hod25/hourly-timer-integration
-   ```
-5. Select **Integration** as category
-6. Click **Add**
-7. Search for "Hourly Timer" and install
-8. Restart Home Assistant
+### Manual
 
-### Manual Installation
+Copy `custom_components/hourly_timer` into your `/config/custom_components/` folder and restart Home Assistant.
 
-1. Copy the `custom_components/hourly_timer` folder to your `/config/custom_components/` directory
-2. Copy `www/hourly-timer-card.js` to your `/config/www/` directory
-3. Add the following to your `configuration.yaml`:
-   ```yaml
-   lovelace:
-     resources:
-       - url: /local/hourly-timer-card.js
-         type: module
-   ```
-4. Restart Home Assistant
+## Setup
 
----
+1. Go to **Settings → Devices & services → Add integration** and choose **Hourly Timer**.
+2. Pick the entity to control, for example `switch.boiler`.
 
-## 🚀 Quick Start
+You get two entities. If the controlled entity belongs to a device, they appear on that device's page.
 
-### 1. Add Integration
+| Entity | What it does |
+| --- | --- |
+| `number.<name>_timer_duration` | Set it to a number of minutes (1–1440) to turn the device on for that long. Setting it again restarts the countdown, and `0` turns the device off. It goes back to `0` when the timer ends. The `ends_at` attribute holds the end time. |
+| `sensor.<name>_timer_ends` | The time the device will be turned off, or *unknown* when no timer is running. |
 
-1. Go to **Settings** → **Devices & Services**
-2. Click **+ Add Integration**
-3. Search for **Hourly Timer**
-4. Select an entity to control (switch, light, fan, climate)
-5. Done! The integration creates:
-   - `input_number.[device_name]_duration` - Timer duration control
-   - Internal logic handles everything automatically
+## Dashboard card
 
-### 2. Add Card to Dashboard
-
-1. Edit your dashboard
-2. Click **+ Add Card**
-3. Select **Manual** and paste:
-   ```yaml
-   type: custom:hourly-timer-card
-   entity: input_number.device_name_duration
-   title: Device Timer
-   ```
-
----
-
-## 💡 Usage Examples
-
-### Electric Boiler
 ```yaml
 type: custom:hourly-timer-card
-entity: input_number.boiler_duration
-title: 🔥 Boiler Timer
+entity: number.boiler_timer_duration
+title: Boiler
 ```
 
-### Garden Lights
+Tap the card to open the dial. Drag to choose a time or pick a preset, then press **Start**. While a timer runs, the dialog also has a **Turn off** button.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `entity` | *required* | The timer's `number` entity. An `input_number` also works, but without the countdown. |
+| `title` | `Timer` | Card title. |
+| `presets` | `[15, 30, 60, 120]` | Quick buttons, in minutes. |
+| `dial_step` | `5` | Minutes per step when dragging the dial. |
+
+## Using it in automations
+
+The number entity is a regular `number`, so you can start a timer from any automation or script:
+
 ```yaml
-type: custom:hourly-timer-card
-entity: input_number.garden_light_duration
-title: 💡 Garden Lights
+action: number.set_value
+target:
+  entity_id: number.boiler_timer_duration
+data:
+  value: 45
 ```
 
-### Fan
-```yaml
-type: custom:hourly-timer-card
-entity: input_number.fan_duration
-title: 🌀 Fan Timer
+## Upgrading from 2.x
+
+Version 2.x tried to create an `input_number.<name>_duration` helper, but that never worked. Version 3 creates its own `number` entity instead.
+
+- Point your cards at the new `number.<name>_timer_duration` entity.
+- If you copied `hourly-timer-card.js` to `/config/www` by hand, delete it and remove the `/local/hourly-timer-card.js` dashboard resource. The integration now loads the card itself.
+
+## Development
+
+Run the tests with Docker:
+
+```bash
+docker run --rm -v "$PWD:/repo" -w /repo python:3.14-slim \
+  sh -c "pip install -q -r requirements_test.txt && pytest"
 ```
 
----
+## License
 
-## 🎯 How It Works
-
-```
-User sets value in card
-       ↓
-input_number changes
-       ↓
-Integration detects change
-       ↓
-Turns entity ON
-       ↓
-Waits X minutes
-       ↓
-Turns entity OFF
-       ↓
-Resets to 0
-```
-
-**Everything happens internally - user just needs to add the integration and use the card!**
-
----
-
-## 🛠️ Configuration
-
-### Changing Maximum Duration
-
-Edit `const.py`:
-```python
-MAX_DURATION = 1440  # 24 hours in minutes
-```
-
-### Customizing Card Colors
-
-Edit `www/hourly-timer-card.js`:
-```css
---primary-color: #03a9f4;        /* Primary color */
---primary-text-color: #212121;   /* Text color */
---card-background-color: #ffffff; /* Background */
-```
-
----
-
-## 📋 Requirements
-
-- Home Assistant 2023.1.0 or newer
-- HACS (optional, but recommended)
-- Modern browser with ES6 support
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a new branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
-
----
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-## 💡 Support
-
-If you encounter an issue or have a suggestion:
-
-- Open an [Issue](https://github.com/hod25/hourly-timer-integration/issues)
-- Start a [Discussion](https://github.com/hod25/hourly-timer-integration/discussions)
-
----
-
-## 🎯 Common Use Cases
-
-- ⚡ Electric boiler
-- 💡 Lighting (indoor/outdoor)
-- 🌀 Fans
-- ❄️ Air conditioning
-- 💦 Irrigation systems
-- 🔌 Any switchable device
-
----
-
-**Made with ❤️ for the Home Assistant Community**
+MIT. See [LICENSE](LICENSE).

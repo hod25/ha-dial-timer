@@ -1,4 +1,4 @@
-# קבצים שלא צריכים להיכלל ב-Git
+# Files that should not be committed
 __pycache__/
 *.py[cod]
 *$py.class
@@ -7,6 +7,8 @@ __pycache__/
 .venv
 venv/
 ENV/
+.pytest_cache/
+.coverage
 .vscode/
 .idea/
 *.swp
