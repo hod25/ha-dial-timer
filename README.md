@@ -19,7 +19,9 @@ It includes a dashboard card that shows a live countdown and a dial for setting 
 
 ## Installation
 
-### HACS (recommended)
+### Home Assistant Marketplace / HACS (recommended)
+
+On Home Assistant 2026.11 and newer, HACS is built in as the **Marketplace** (Settings → Marketplace). On older versions, use HACS.
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/hod25/hourly-timer-integration` with the category **Integration**.
