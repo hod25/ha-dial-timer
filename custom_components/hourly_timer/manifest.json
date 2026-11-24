@@ -1,6 +1,7 @@
 {
   "domain": "hourly_timer",
   "name": "Hourly Timer",
+  "categories": ["helpers"],
   "codeowners": ["@hod25"],
   "config_flow": true,
   "dependencies": ["frontend", "http"],
