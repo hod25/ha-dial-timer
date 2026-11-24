@@ -31,6 +31,8 @@ Work for the repository owner, GitHub user **hod25**. They write in Hebrew. Writ
 | Tests | `tests/`, 27 pytest tests (pytest-homeassistant-custom-component) |
 | HACS inclusion | PR https://github.com/hacs/default/pull/14843 (pending when this was written) |
 | Closest existing feature request | https://github.com/orgs/home-assistant/discussions/3126, "time based auto-toggle behaviour for more info dialog for toggle-able items" (category: Dashboards & cards) |
+| **Where the direction is decided** | https://github.com/home-assistant/architecture/discussions/1491, "Add 'timed open' to the valve entity". See "Phase 1 findings" below. |
+| Phase 2 drafts | `docs/phase2-drafts.md` (comments for #1491 and #3126, waiting for the owner's approval) |
 
 What the card does, for any proposal text:
 - The ring is a timeline starting now, covering 270° with the gap at the bottom (thermostat-card style).
@@ -47,7 +49,42 @@ Backend behavior a core version must keep (all covered by tests):
 - Turning the device off by hand cancels a running timer, but not a schedule that hasn't started.
 - Setting 0 cancels a schedule without turning off a device that was turned on by hand.
 
-## Phase 1: research (no public actions)
+## Phase 1 findings (done 2026-11-24)
+
+These findings change the plan. Where they conflict with the phases below, the findings win. Re-check them if time has passed.
+
+**The architecture team already has a direction.** In [architecture#1491](https://github.com/home-assistant/architecture/discussions/1491), edenhaus wrote on 2026-10-05 that the architecture meeting supported the following:
+- Apply "timed on/open" to all toggle entities (`switch`, `light`, `valve`, …), not just valves. This ties back to [architecture#615](https://github.com/home-assistant/architecture/discussions/615) (2021).
+- Keep the entity's state as it is. Add a state attribute with the time the device will revert.
+- Give turn-on/open actions an optional `duration` parameter, gated by an `EntityFeature`.
+- The device itself does the revert, so it works through Home Assistant restarts and crashes.
+- puddly was asked for an analysis of which integrations support this natively. Nothing was decided beyond that as of 2026-11-24.
+
+Consequences:
+- **A new core helper integration is not a realistic route.** The "Does it belong in core?" rules (https://contributors.home-assistant.io/core/integrations/create/) require a product you can buy today, an existing user base, and a PyPI library for all communication. A software timer helper meets none of these. Don't plan to port this integration to core as-is.
+- **The gap we can fill:** devices without native timed-off, like cheap Wi-Fi plugs, won't get the `EntityFeature`. Whether Home Assistant should offer a software fallback for them is an open question. Our backend's edge-case handling is relevant evidence there.
+- **The frontend part becomes simpler:** once `duration` and the revert-time attribute exist, a "run for" control only needs to send `turn_on` with `duration` and show a countdown from the attribute.
+
+**Overlap found** (votes as of 2026-11-24):
+
+| Item | Votes | Notes |
+| --- | --- | --- |
+| [#3126](https://github.com/orgs/home-assistant/discussions/3126) | 8 | Open, no comments. The right category for the UI request. |
+| [#5348](https://github.com/orgs/home-assistant/discussions/5348) | 1 | Newer duplicate of #3126. Don't comment. |
+| [frontend#21677](https://github.com/home-assistant/frontend/discussions/21677) | 15 | Old repository (2024). Maintainer karwosts: "can't really imagine this coming to the main HA UI". This is the main objection to answer. |
+| [#4471](https://github.com/orgs/home-assistant/discussions/4471) | 2 | "Auto turn off after" in the "Turn on light" action. Related. |
+| [architecture#1407](https://github.com/home-assistant/architecture/discussions/1407) | 14 | Timer list entity. Approved 2026-09-03. Voice timers, not this use case. |
+| Frontend PRs | – | No PR found for a timer, auto-off or countdown tile feature. |
+
+`ha-control-circular-slider` exists at `src/components/ha-control-circular-slider.ts` and is used by `hui-light-card` and the thermostat card.
+
+**The previously unverified items, now verified:**
+- Frontend guide: https://contributors.home-assistant.io/frontend/ (development: `/frontend/development/`). The frontend repository has no `CONTRIBUTING.md`; the contributors site is the guide. Setup is `script/setup`. Ideas go to GitHub discussions, and UX questions go to the UX design discussions.
+- CLA: required. On the first PR to a `home-assistant/*` repository, a bot posts a link to sign it, and the PR can't be merged before that. Only the owner can sign. Tell them before opening the first PR.
+- Quality scale: confirmed. Bronze is the minimum for a new integration, with a `quality_scale` key in the manifest and a `quality_scale.yaml` that hassfest checks. This only matters if a new integration is ever proposed.
+- General rule (https://contributors.home-assistant.io/start/pull-requests/): most changes don't need permission first, but bigger ones, like a new type of entity or a change to how all integrations work, start as a discussion.
+
+## Phase 1: research (no public actions) — done, see findings above
 
 Read these pages and summarize the current rules for the owner. Note anything that contradicts this brief.
 
@@ -70,6 +107,12 @@ Deliverable: a short report to the owner covering the current process, the overl
 
 ## Phase 2: support the feature request
 
+Current state: the #1491 comment was posted 2026-11-24 (https://github.com/home-assistant/architecture/discussions/1491#discussioncomment-19863113). The #3126 draft in `docs/phase2-drafts.md` is waiting for a screenshot. There are two targets:
+- **#1491** (architecture): ask whether a Home Assistant-side fallback for entities without native timed-off is in scope, share the edge cases from our backend, and offer help with the UI. Post this one first.
+- **#3126** (feature request): the use case, a screenshot and a link to the prototype, with a pointer to #1491 for the backend.
+
+The steps below describe the #3126 comment.
+
 1. Draft a comment for discussion #3126, or for a better match found in Phase 1. It should:
    - Describe the use case in one or two sentences: an electric water heater (boiler) that must not be left on, fans, garden lights, irrigation.
    - Say what the existing options lack. The `timer` helper needs an automation per device. Automations are not a one-tap UI.
@@ -84,17 +127,21 @@ Don't open a new feature request if #3126 or another existing one fits. Open one
 
 ## Phase 3: agree on the shape before writing code
 
-An official version can't depend on this custom integration. Decide with the owner, informed by maintainer feedback, between:
+An official version can't depend on this custom integration. Decide with the owner, informed by maintainer feedback on #1491 and #3126, between:
 
-- **A. Frontend only:** a tile feature or more-info control that sends `turn_on`, then relies on a core mechanism to turn off later. This only works if core already offers something it can use (check the `timer` helper and any "turn off after" support). It's the smallest change and the most likely to be accepted.
-- **B. Frontend + core:** a new core capability (for example a helper, or an extension of `timer`) that holds the start and end, plus a frontend feature on top. This is a bigger change and probably needs an architecture discussion first (https://github.com/home-assistant/architecture/discussions), because other features would build on it.
+- **A. Frontend on top of #1491 (most likely):** once the `duration` parameter and the revert-time attribute exist in core, build a "run for" tile feature or more-info control. It is shown only for entities with the new `EntityFeature`, sends `turn_on` with `duration`, and shows a countdown from the attribute. Wait for the entity model to be merged, or at least approved in detail, before writing this.
+- **B. Help build #1491 itself:** if maintainers welcome it, contribute to the core side. That could mean the base entity changes, `duration` support in a specific integration, or a Home Assistant-side fallback for entities without native support, if the architecture team says it's in scope. The fallback is where our backend's edge cases (restart, unavailable device, manual off) are directly useful. Only do what a maintainer has explicitly agreed to.
 - **C. Stop:** if maintainers say it doesn't belong in core, record why. The custom integration remains the answer.
+
+The old option "a new core helper integration" is dropped. See Phase 1 findings.
 
 Don't start Phase 4 without a direction that a maintainer has supported, or that the owner explicitly accepts the risk of.
 
 ## Phase 4: core changes (only for shape B)
 
-Follow the current core developer docs. At the time of writing, a new core integration must:
+Most likely this is a change to existing entity platforms (for example `homeassistant/components/switch`, `light` or `valve`) or to one integration, following the design agreed in #1491. It is not a new integration. Follow the current core developer docs and the architecture decision exactly, and keep the first PR small. The rules below apply only if maintainers ever ask for a new integration.
+
+At the time of writing, a new core integration must:
 - Reach the **Bronze** quality scale, with a `quality_scale` key in `manifest.json` and a `quality_scale.yaml` listing each rule as `done`, `todo` or `exempt` with a reason. Hassfest checks this.
 - Be set up from the UI, with a tested config flow, unique IDs and documentation.
 - Follow core rules that the custom version breaks. Core integrations don't ship or serve frontend code, so remove the static path and `add_extra_js_url`. They don't carry a `version` key, they use core's translation pipeline, and their tests go in the core test layout.
