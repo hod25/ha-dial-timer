@@ -1,10 +1,10 @@
 # Phase 2 drafts: comments for approval
 
-Status: draft 1 **posted** 2026-11-24 with the owner's approval. Draft 2 is **not posted**: it is waiting for a screenshot. Each comment is posted only after the owner (hod25) approves its exact text.
+Status: both comments **posted** 2026-11-24 with the owner's approval (links in the headings below). Each future comment is posted only after the owner (hod25) approves its exact text.
 
 Suggested order: post draft 1 first, because #1491 is where the direction is decided. Post draft 2 after it, so it can link to the #1491 comment.
 
-Before posting draft 2, attach a screenshot or GIF of the card (running state, light or dark mode) where it says `[screenshot]`. GitHub uploads the image when you drag it into the comment box.
+The screenshot used in draft 2 is `docs/images/dial-timer-card.png`, linked by commit SHA (3da9b0c).
 
 ---
 
@@ -27,7 +27,7 @@ Where: https://github.com/home-assistant/architecture/discussions/1491
 
 ---
 
-## Draft 2: feature request #3126
+## Draft 2: feature request #3126 — POSTED 2026-11-24: https://github.com/home-assistant/feature-requests/discussions/3126#discussioncomment-19863254
 
 Where: https://github.com/orgs/home-assistant/discussions/3126
 

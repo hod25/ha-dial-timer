@@ -107,7 +107,7 @@ Deliverable: a short report to the owner covering the current process, the overl
 
 ## Phase 2: support the feature request
 
-Current state: the #1491 comment was posted 2026-11-24 (https://github.com/home-assistant/architecture/discussions/1491#discussioncomment-19863113). The #3126 draft in `docs/phase2-drafts.md` is waiting for a screenshot. There are two targets:
+Current state: the #1491 comment was posted 2026-11-24 (https://github.com/home-assistant/architecture/discussions/1491#discussioncomment-19863113). The #3126 comment was posted the same day, with a screenshot (https://github.com/home-assistant/feature-requests/discussions/3126#discussioncomment-19863254). Next: wait for replies, summarise them for the owner, then decide Phase 3. There are two targets:
 - **#1491** (architecture): ask whether a Home Assistant-side fallback for entities without native timed-off is in scope, share the edge cases from our backend, and offer help with the UI. Post this one first.
 - **#3126** (feature request): the use case, a screenshot and a link to the prototype, with a pointer to #1491 for the backend.
 
