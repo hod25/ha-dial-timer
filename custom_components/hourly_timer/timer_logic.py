@@ -1,4 +1,4 @@
-"""Timer logic for the Hourly Timer integration."""
+"""Timer logic for the Dial Timer integration."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 /**
- * Hourly Timer Card for Home Assistant
+ * Dial Timer Card for Home Assistant
  *
  * A circular slider in a single card. The ring is a timeline starting now:
  * - the end handle (on the ring) sets how long the device stays on;
@@ -650,14 +650,14 @@ if (!customElements.get("hourly-timer-card")) {
   window.customCards = window.customCards || [];
   window.customCards.push({
     type: "hourly-timer-card",
-    name: "Hourly Timer Card",
+    name: "Dial Timer Card",
     description: "Circular slider to turn a device on now or later for a set time, with a live countdown.",
     preview: true,
     documentationURL: "https://github.com/hod25/hourly-timer-integration",
   });
 
   console.info(
-    `%c HOURLY-TIMER-CARD %c v${CARD_VERSION} `,
+    `%c DIAL-TIMER-CARD %c v${CARD_VERSION} `,
     "color: white; background: #03a9f4; font-weight: 700;",
     "color: #03a9f4; background: white; font-weight: 700;"
   );

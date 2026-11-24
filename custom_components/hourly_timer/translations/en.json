@@ -1,9 +1,9 @@
 {
-  "title": "Hourly Timer",
+  "title": "Dial Timer",
   "config": {
     "step": {
       "user": {
-        "title": "Hourly Timer",
+        "title": "Dial Timer",
         "description": "Choose the entity to control. Setting a duration turns it on, and it turns off automatically when the time is up.",
         "data": {
           "entity_id": "Entity"

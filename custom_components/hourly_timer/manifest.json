@@ -1,6 +1,6 @@
 {
   "domain": "hourly_timer",
-  "name": "Hourly Timer",
+  "name": "Dial Timer",
   "categories": ["helpers"],
   "codeowners": ["@hod25"],
   "config_flow": true,

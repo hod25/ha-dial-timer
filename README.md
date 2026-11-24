@@ -1,13 +1,17 @@
-# Hourly Timer for Home Assistant
+<img src="custom_components/hourly_timer/brand/icon.png" alt="" width="72" align="right">
+
+# Dial Timer for Home Assistant
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
 [![Validate](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8%2B-blue.svg)
 
-Turn a device on for a set number of minutes. It turns off on its own when the time is up.
+Turn a device on now or later for a set number of minutes, from a circular dial. It turns off on its own when the time is up.
 Useful for an electric water heater (boiler), fans, garden lights, irrigation, or anything else you tend to forget to turn off.
 
 It includes a dashboard card that shows a live countdown and a dial for setting the time.
+
+> The integration's domain is `hourly_timer` (its original name), so the `hourly_timer.schedule` action and the `custom:hourly-timer-card` card type keep that name.
 
 ## Features
 
@@ -26,7 +30,7 @@ On Home Assistant 2026.11 and newer, HACS is built in as the **Marketplace** (Se
 
 1. In HACS, open the menu (⋮) and choose **Custom repositories**.
 2. Add `https://github.com/hod25/hourly-timer-integration` with the category **Integration**.
-3. Search for **Hourly Timer**, download it, and restart Home Assistant.
+3. Search for **Dial Timer**, download it, and restart Home Assistant.
 
 ### Manual
 
@@ -34,7 +38,7 @@ Copy `custom_components/hourly_timer` into your `/config/custom_components/` fol
 
 ## Setup
 
-1. Go to **Settings → Devices & services → Add integration** and choose **Hourly Timer**.
+1. Go to **Settings → Devices & services → Add integration** and choose **Dial Timer**.
 2. Pick the entity to control, for example `switch.boiler`.
 
 You get three entities. If the controlled entity belongs to a device, they appear on that device's page.

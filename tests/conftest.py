@@ -1,4 +1,4 @@
-"""Fixtures for Hourly Timer tests."""
+"""Fixtures for Dial Timer tests."""
 
 from __future__ import annotations
 

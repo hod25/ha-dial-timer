@@ -1,4 +1,4 @@
-"""Constants for the Hourly Timer integration."""
+"""Constants for the Dial Timer integration."""
 
 from __future__ import annotations
 
