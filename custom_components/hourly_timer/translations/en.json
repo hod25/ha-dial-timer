@@ -24,8 +24,31 @@
       }
     },
     "sensor": {
+      "starts_at": {
+        "name": "Timer starts"
+      },
       "ends_at": {
         "name": "Timer ends"
+      }
+    }
+  },
+  "services": {
+    "schedule": {
+      "name": "Schedule timer",
+      "description": "Turns the controlled entity on at a later time for a number of minutes.",
+      "fields": {
+        "duration": {
+          "name": "Duration",
+          "description": "How long to keep it on, in minutes."
+        },
+        "start_in": {
+          "name": "Start in",
+          "description": "Minutes from now until it turns on. Leave out to start now."
+        },
+        "start_at": {
+          "name": "Start at",
+          "description": "Date and time to turn it on. Use instead of Start in."
+        }
       }
     }
   }

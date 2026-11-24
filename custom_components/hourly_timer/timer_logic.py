@@ -29,6 +29,7 @@ from homeassistant.helpers.event import (
     async_track_point_in_utc_time,
     async_track_state_change_event,
 )
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
@@ -43,7 +44,8 @@ RETRY_OFF_DELAY = 30
 class HourlyTimer:
     """Turns a target entity on for a number of minutes, then off again.
 
-    The end time is persisted, so a running timer survives a Home Assistant
+    The timer can also be scheduled to start later. Start and end times are
+    persisted, so a scheduled or running timer survives a Home Assistant
     restart. When the timer ends but the target can't be turned off (it isn't
     loaded yet after a restart, or it is unavailable), a pending "off" is
     persisted and retried as soon as the target reports a state again.
@@ -55,20 +57,27 @@ class HourlyTimer:
         self.target_entity_id = target_entity_id
         self.duration: int = 0
         self.ends_at: datetime | None = None
+        self.starts_at: datetime | None = None
         self._pending_off = False
 
         self._store: Store[dict[str, Any]] = Store(
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}"
         )
         self._unsub_expire: CALLBACK_TYPE | None = None
+        self._unsub_start: CALLBACK_TYPE | None = None
         self._unsub_target: CALLBACK_TYPE | None = None
         self._unsub_retry: CALLBACK_TYPE | None = None
         self._listeners: list[Callable[[], None]] = []
 
     @property
     def is_running(self) -> bool:
-        """Return True while a timer is counting down."""
-        return self.ends_at is not None
+        """Return True while the target is on and the timer counts down."""
+        return self.ends_at is not None and self.starts_at is None
+
+    @property
+    def is_scheduled(self) -> bool:
+        """Return True while waiting for a scheduled start."""
+        return self.starts_at is not None
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -83,8 +92,40 @@ class HourlyTimer:
         data = await self._store.async_load() or {}
         self._pending_off = bool(data.get("pending_off", False))
         ends_at = dt_util.parse_datetime(data["ends_at"]) if data.get("ends_at") else None
+        starts_at = (
+            dt_util.parse_datetime(data["starts_at"]) if data.get("starts_at") else None
+        )
+        now = dt_util.utcnow()
 
-        if ends_at is not None and ends_at > dt_util.utcnow():
+        if starts_at is not None and ends_at is not None:
+            self.duration = int(data.get("duration", 0))
+            if starts_at > now:
+                self.starts_at = starts_at
+                self.ends_at = ends_at
+                self._schedule_start()
+                _LOGGER.debug(
+                    "Restored schedule for %s, starts at %s",
+                    self.target_entity_id,
+                    starts_at,
+                )
+            elif ends_at > now:
+                _LOGGER.info(
+                    "Scheduled start for %s passed while Home Assistant was stopped, "
+                    "turning it on until %s",
+                    self.target_entity_id,
+                    ends_at,
+                )
+                self.starts_at = starts_at
+                self.ends_at = ends_at
+                # Wait until Home Assistant has started so the target is loaded.
+                self._unsub_start = async_at_started(
+                    self.hass, self._async_scheduled_start
+                )
+            else:
+                # The whole window passed while stopped. The target was never
+                # turned on, so there is nothing to turn off.
+                await self._async_reset(force_save=True)
+        elif ends_at is not None and ends_at > now:
             self.duration = int(data.get("duration", 0))
             self.ends_at = ends_at
             self._schedule_expiry()
@@ -105,6 +146,7 @@ class HourlyTimer:
     def async_shutdown(self) -> None:
         """Stop all listeners. The persisted timer is kept for the next start."""
         self._cancel_expiry()
+        self._cancel_start()
         self._cancel_retry()
         if self._unsub_target:
             self._unsub_target()
@@ -139,21 +181,26 @@ class HourlyTimer:
         """
         duration = int(duration)
         if duration <= 0:
-            await self.async_cancel(turn_off=True)
+            # Cancelling a schedule that has not started leaves the target alone.
+            await self.async_cancel(turn_off=not self.is_scheduled)
             return
         duration = min(duration, MAX_DURATION)
 
-        previous = (self.duration, self.ends_at)
+        previous = (self.duration, self.ends_at, self.starts_at)
         self._cancel_expiry()
+        self._cancel_start()
         self.duration = duration
         self.ends_at = dt_util.utcnow() + timedelta(minutes=duration)
+        self.starts_at = None
 
         try:
             await self._async_call(SERVICE_TURN_ON)
         except HomeAssistantError:
             # Leave everything as it was before the failed attempt.
-            self.duration, self.ends_at = previous
-            if self.ends_at is not None:
+            self.duration, self.ends_at, self.starts_at = previous
+            if self.starts_at is not None:
+                self._schedule_start()
+            elif self.ends_at is not None:
                 self._schedule_expiry()
             self._notify()
             raise
@@ -169,6 +216,36 @@ class HourlyTimer:
             duration,
             self.ends_at,
         )
+
+    async def async_schedule(self, start: datetime, duration: int) -> None:
+        """Turn the target on at `start` for `duration` minutes.
+
+        A start time in the past (or within the next minute) starts now.
+        Scheduling while a timer is running turns the target off until the
+        new start time.
+        """
+        duration = min(max(int(duration), 1), MAX_DURATION)
+        start = dt_util.as_utc(start)
+        if start <= dt_util.utcnow() + timedelta(minutes=1):
+            await self.async_start(duration)
+            return
+
+        was_running = self.is_running
+        self._cancel_expiry()
+        self._cancel_start()
+        self.duration = duration
+        self.starts_at = start
+        self.ends_at = start + timedelta(minutes=duration)
+        self._pending_off = False
+        self._cancel_retry()
+        self._schedule_start()
+        await self._async_save()
+        self._notify()
+        _LOGGER.debug(
+            "%s scheduled from %s to %s", self.target_entity_id, start, self.ends_at
+        )
+        if was_running:
+            await self._async_call(SERVICE_TURN_OFF)
 
     async def async_cancel(self, turn_off: bool) -> None:
         """Cancel the timer, optionally turning the target off."""
@@ -192,6 +269,39 @@ class HourlyTimer:
             self._unsub_expire()
             self._unsub_expire = None
 
+    def _schedule_start(self) -> None:
+        assert self.starts_at is not None
+        self._cancel_start()
+        self._unsub_start = async_track_point_in_utc_time(
+            self.hass, self._async_scheduled_start, self.starts_at
+        )
+
+    def _cancel_start(self) -> None:
+        if self._unsub_start:
+            self._unsub_start()
+            self._unsub_start = None
+
+    async def _async_scheduled_start(self, _now: Any) -> None:
+        """Turn the target on at the scheduled start time."""
+        self._unsub_start = None
+        self.starts_at = None
+        try:
+            await self._async_call(SERVICE_TURN_ON)
+        except HomeAssistantError as err:
+            _LOGGER.error(
+                "Could not turn on %s for its scheduled timer: %s",
+                self.target_entity_id,
+                err,
+            )
+            await self._async_reset(force_save=True)
+            return
+        self._schedule_expiry()
+        await self._async_save()
+        self._notify()
+        _LOGGER.debug(
+            "%s turned on by schedule until %s", self.target_entity_id, self.ends_at
+        )
+
     async def _async_expired(self, _now: datetime) -> None:
         """Handle the end of the countdown."""
         self._unsub_expire = None
@@ -199,12 +309,14 @@ class HourlyTimer:
         await self._async_reset()
         await self._async_request_off()
 
-    async def _async_reset(self) -> None:
-        """Clear the running timer and persist that."""
+    async def _async_reset(self, force_save: bool = False) -> None:
+        """Clear the running or scheduled timer and persist that."""
         self._cancel_expiry()
-        changed = self.is_running or self.duration != 0
+        self._cancel_start()
+        changed = force_save or self.ends_at is not None or self.duration != 0
         self.duration = 0
         self.ends_at = None
+        self.starts_at = None
         if changed:
             await self._async_save()
             self._notify()
@@ -278,6 +390,7 @@ class HourlyTimer:
             {
                 "duration": self.duration,
                 "ends_at": self.ends_at.isoformat() if self.ends_at else None,
+                "starts_at": self.starts_at.isoformat() if self.starts_at else None,
                 "pending_off": self._pending_off,
             }
         )

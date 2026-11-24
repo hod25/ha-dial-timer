@@ -1,0 +1,27 @@
+schedule:
+  target:
+    entity:
+      integration: hourly_timer
+      domain: number
+  fields:
+    duration:
+      required: true
+      example: 45
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    start_in:
+      example: 60
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min
+          mode: box
+    start_at:
+      example: "2026-11-24 22:00:00"
+      selector:
+        datetime:
