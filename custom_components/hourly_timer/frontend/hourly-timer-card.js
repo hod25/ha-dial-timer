@@ -12,7 +12,7 @@
  */
 
 (() => {
-const CARD_VERSION = "3.2.0";
+const CARD_VERSION = "3.2.1";
 
 // Geometry (SVG user units). The ring is a 270° arc with the gap at the bottom.
 const CX = 100;
