@@ -2,7 +2,7 @@
 
 # Dial Timer for Home Assistant
 
-[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://hacs.xyz)
+[![HACS](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://hacs.xyz)
 [![Validate](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/hod25/hourly-timer-integration/actions/workflows/validate.yml)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2025.8%2B-blue.svg)
 
@@ -30,9 +30,8 @@ It includes a dashboard card that shows a live countdown and a dial for setting 
 
 On Home Assistant 2026.11 and newer, HACS is built in as the **Marketplace** (Settings → Marketplace). On older versions, use HACS.
 
-1. In HACS, open the menu (⋮) and choose **Custom repositories**.
-2. Add `https://github.com/hod25/hourly-timer-integration` with the category **Integration**.
-3. Search for **Dial Timer**, download it, and restart Home Assistant.
+1. Open the **Marketplace** (or HACS) and search for **Dial Timer**.
+2. Download it, then restart Home Assistant.
 
 ### Manual
 
