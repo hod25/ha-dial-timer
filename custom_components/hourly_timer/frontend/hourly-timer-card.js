@@ -1,16 +1,22 @@
 /**
  * Hourly Timer Card for Home Assistant
  *
- * Shows the remaining time of an Hourly Timer and opens a dial to set a new
- * duration. Works with the integration's `number.*_timer_duration` entity
- * (recommended) or with any `input_number`.
+ * A circular slider in a single card: drag the ring to choose a duration and
+ * release to start. While running, the ring shows the remaining time with a
+ * live countdown. Works with the integration's `number.*_timer_duration`
+ * entity (recommended) or with any `input_number`.
  */
 
 (() => {
-const CARD_VERSION = "3.0.0";
-const DEFAULT_PRESETS = [15, 30, 60, 120];
-const RADIUS = 120;
-const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const CARD_VERSION = "3.1.0";
+
+// Ring geometry (SVG user units). The ring is a 270° arc with the gap at the bottom.
+const CX = 100;
+const CY = 100;
+const R = 80;
+const START_ANGLE = 135; // degrees, SVG coordinates (clockwise from +x)
+const SWEEP = 270;
+const COMMIT_DELAY = 800; // ms after the last change before the value is sent
 
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({
@@ -34,12 +40,30 @@ const formatCountdown = (seconds) => {
   return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
 };
 
+const polar = (angleDeg, radius = R) => {
+  const a = (angleDeg * Math.PI) / 180;
+  return [CX + radius * Math.cos(a), CY + radius * Math.sin(a)];
+};
+
+/** SVG path for the part of the ring from 0 to `fraction` (0..1). */
+const arcPath = (fraction) => {
+  const f = Math.min(1, Math.max(0, fraction));
+  if (f <= 0) return "";
+  const [x1, y1] = polar(START_ANGLE);
+  const [x2, y2] = polar(START_ANGLE + SWEEP * f);
+  const large = SWEEP * f > 180 ? 1 : 0;
+  return `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`;
+};
+
 class HourlyTimerCard extends HTMLElement {
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
-    this._dialValue = 0;
+    this._preview = null; // value chosen by the user, not yet confirmed by HA
+    this._sending = false;
     this._dragging = false;
+    this._commitTimer = null;
+    this._previewTimeout = null;
     this._tick = null;
   }
 
@@ -58,11 +82,7 @@ class HourlyTimerCard extends HTMLElement {
     if (domain !== "number" && domain !== "input_number") {
       throw new Error("The entity must be a number or input_number entity");
     }
-    this.config = {
-      dial_step: 5,
-      presets: DEFAULT_PRESETS,
-      ...config,
-    };
+    this.config = { max_minutes: 240, dial_step: 5, presets: [15, 30, 60], ...config };
     if (this.shadowRoot.firstChild) {
       this.shadowRoot.innerHTML = "";
       this._els = null;
@@ -86,11 +106,11 @@ class HourlyTimerCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 3;
+    return 6;
   }
 
   getGridOptions() {
-    return { columns: 6, rows: 3, min_columns: 4, min_rows: 2 };
+    return { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   // ---------------------------------------------------------------------------
@@ -101,21 +121,53 @@ class HourlyTimerCard extends HTMLElement {
     return this._hass && this._hass.states[this.config.entity];
   }
 
-  get _limits() {
-    const attrs = (this._stateObj && this._stateObj.attributes) || {};
-    return {
-      min: Number(attrs.min ?? 0),
-      max: Number(attrs.max ?? 1440) || 1440,
-      step: Number(attrs.step ?? 1) || 1,
-    };
+  get _available() {
+    const s = this._stateObj;
+    return Boolean(s) && s.state !== "unavailable";
   }
 
-  /** Seconds until the timer ends, or null when no end time is known. */
+  /** Largest value on the ring: the card option, capped by the entity's max. */
+  get _max() {
+    const attrs = (this._stateObj && this._stateObj.attributes) || {};
+    const entityMax = Number(attrs.max ?? 1440) || 1440;
+    return Math.min(entityMax, Number(this.config.max_minutes) || 240);
+  }
+
+  get _step() {
+    const attrs = (this._stateObj && this._stateObj.attributes) || {};
+    return Math.max(Number(this.config.dial_step) || 1, Number(attrs.step ?? 1) || 1);
+  }
+
+  /** Seconds until the timer ends, or null when the entity has no end time. */
   _remainingSeconds() {
-    const stateObj = this._stateObj;
-    const endsAt = stateObj && stateObj.attributes.ends_at;
+    const s = this._stateObj;
+    const endsAt = s && s.attributes.ends_at;
     if (!endsAt) return null;
-    return (new Date(endsAt).getTime() - Date.now()) / 1000;
+    return Math.max(0, (new Date(endsAt).getTime() - Date.now()) / 1000);
+  }
+
+  _isRunning() {
+    const remaining = this._remainingSeconds();
+    if (remaining !== null) return remaining > 0;
+    // input_number fallback: no end time, a non-zero value means running.
+    return (Number(this._stateObj && this._stateObj.state) || 0) > 0;
+  }
+
+  _remainingMinutes() {
+    const remaining = this._remainingSeconds();
+    if (remaining !== null) return remaining / 60;
+    return Number(this._stateObj && this._stateObj.state) || 0;
+  }
+
+  /** Minutes the ring currently shows. */
+  _displayMinutes() {
+    if (this._preview !== null) return this._preview;
+    return this._isRunning() ? this._remainingMinutes() : 0;
+  }
+
+  _clamp(value) {
+    const stepped = Math.round(value / this._step) * this._step;
+    return Math.min(this._max, Math.max(0, stepped));
   }
 
   // ---------------------------------------------------------------------------
@@ -123,103 +175,102 @@ class HourlyTimerCard extends HTMLElement {
   // ---------------------------------------------------------------------------
 
   _render() {
-    const title = escapeHtml(this.config.title || "Timer");
+    const title = this.config.title ? escapeHtml(this.config.title) : "";
     const presets = (this.config.presets || [])
-      .map((p) => `<button class="chip" data-minutes="${Number(p)}">${formatMinutes(p)}</button>`)
+      .map((p) => `<button class="chip" type="button" data-minutes="${Number(p)}">${formatMinutes(p)}</button>`)
       .join("");
+    const [sx, sy] = polar(START_ANGLE);
 
     this.shadowRoot.innerHTML = `
       <style>
-        ha-card { height: 100%; box-sizing: border-box; }
-        .card { padding: 16px; display: flex; flex-direction: column; gap: 12px; height: 100%; box-sizing: border-box; }
-        .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); }
-        .display {
-          flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-          gap: 4px; padding: 16px; border-radius: 12px; cursor: pointer; user-select: none;
-          border: 2px solid var(--divider-color); background: none; font: inherit; color: inherit;
-          transition: border-color 0.2s ease, background-color 0.2s ease;
-        }
-        .display:hover, .display:focus-visible { border-color: var(--primary-color); outline: none; }
-        .display.running { border-color: var(--primary-color); background: rgba(var(--rgb-primary-color, 3, 169, 244), 0.08); }
-        .value { font-size: 40px; font-weight: 600; line-height: 1.1; color: var(--primary-text-color); font-variant-numeric: tabular-nums; }
-        .sub { font-size: 14px; color: var(--secondary-text-color); }
-        .unavailable .value { color: var(--disabled-text-color); }
+        :host { --ht-color: var(--hourly-timer-color, var(--state-active-color, var(--primary-color))); }
+        ha-card { height: 100%; box-sizing: border-box; padding: 12px 16px 16px; display: flex; flex-direction: column; }
+        .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); margin-bottom: 4px; }
+        .title:empty { display: none; }
+        .dial-wrap { position: relative; width: 100%; max-width: 300px; margin: 0 auto; container-type: inline-size; }
+        .dial { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+        .ring-hit { fill: none; stroke: transparent; stroke-width: 44; stroke-linecap: round; cursor: pointer; }
+        .track { fill: none; stroke: var(--divider-color, rgba(127,127,127,0.3)); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
+        .value { fill: none; stroke: var(--ht-color); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
+        .knob { fill: var(--card-background-color, #fff); stroke: var(--ht-color); stroke-width: 4; pointer-events: none; }
+        .start-dot { fill: var(--ht-color); pointer-events: none; }
+        .idle .knob { stroke: var(--secondary-text-color); }
+        .idle .start-dot { fill: var(--secondary-text-color); opacity: 0.6; }
+        .unavailable .value, .unavailable .knob, .unavailable .start-dot { display: none; }
+        .dial:focus { outline: none; }
+        .dial:focus-visible .track { stroke: var(--primary-color); }
 
-        dialog {
-          border: none; border-radius: 16px; padding: 24px 20px; width: min(360px, 90vw); box-sizing: border-box;
-          background: var(--card-background-color, #fff); color: var(--primary-text-color);
-          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        .center {
+          position: absolute; inset: 22% 18% 16%; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; text-align: center; pointer-events: none; gap: 2px;
         }
-        dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
-        .dialog-title { text-align: center; font-size: 18px; font-weight: 500; margin-bottom: 16px; }
-        .dial { position: relative; width: 100%; max-width: 280px; aspect-ratio: 1; margin: 0 auto 16px; touch-action: none; cursor: pointer; }
-        .dial svg { width: 100%; height: 100%; transform: rotate(-90deg); display: block; }
-        .track { fill: none; stroke: var(--divider-color); stroke-width: 12; }
-        .progress { fill: none; stroke: var(--primary-color); stroke-width: 12; stroke-linecap: round; }
-        .knob { fill: var(--primary-color); stroke: var(--card-background-color, #fff); stroke-width: 4; }
-        .dial-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; }
-        .dial-value { font-size: 32px; font-weight: 600; font-variant-numeric: tabular-nums; }
-        .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px; }
+        .big { font-size: clamp(26px, 13cqw, 44px); font-weight: 500; line-height: 1.1; color: var(--primary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .sub { font-size: clamp(11px, 5.5cqw, 14px); color: var(--secondary-text-color); min-height: 1.3em; white-space: nowrap; }
+        @container (max-width: 200px) { .sub-prefix { display: none; } }
+        .stop {
+          pointer-events: auto; margin-top: 8px; width: clamp(32px, 16cqw, 44px); height: clamp(32px, 16cqw, 44px); flex-shrink: 0; border-radius: 50%; border: none; cursor: pointer;
+          background: rgba(127, 127, 127, 0.15); color: var(--primary-text-color);
+          display: flex; align-items: center; justify-content: center; padding: 0;
+        }
+        .stop:hover { background: rgba(127, 127, 127, 0.28); }
+        .stop svg { width: 18px; height: 18px; }
+
+        .controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: -10px; }
+        .round {
+          width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 1; padding: 0;
+          border: 1px solid var(--divider-color); background: none; color: var(--primary-text-color);
+        }
+        .round:hover { border-color: var(--ht-color); }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+        .chips:empty { display: none; }
         .chip {
           border: 1px solid var(--divider-color); border-radius: 16px; padding: 6px 12px; cursor: pointer;
-          background: none; color: var(--primary-text-color); font: inherit; font-size: 14px;
+          background: none; color: var(--primary-text-color); font: inherit; font-size: 13px;
         }
-        .chip:hover { border-color: var(--primary-color); }
-        .actions { display: flex; gap: 8px; }
-        .actions button { flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font: inherit; font-weight: 500; }
-        .btn-start { background: var(--primary-color); color: var(--text-primary-color, #fff); }
-        .btn-start:disabled { opacity: 0.5; cursor: default; }
-        .btn-off { background: none; color: var(--error-color, #db4437); border: 1px solid var(--error-color, #db4437) !important; }
-        .btn-cancel { background: none; color: var(--primary-text-color); border: 1px solid var(--divider-color) !important; }
+        .chip:hover { border-color: var(--ht-color); }
+        button:disabled { opacity: 0.4; cursor: default; }
         [hidden] { display: none !important; }
       </style>
 
       <ha-card>
-        <div class="card">
-          <div class="title">${title}</div>
-          <button class="display" id="display" type="button">
-            <div class="value" id="value">Off</div>
-            <div class="sub" id="sub">Tap to set a timer</div>
-          </button>
-        </div>
-      </ha-card>
-
-      <dialog id="dialog">
-        <div class="dialog-title">${title}</div>
-        <div class="dial" id="dial">
-          <svg viewBox="0 0 280 280">
-            <circle class="track" cx="140" cy="140" r="${RADIUS}"></circle>
-            <circle class="progress" id="progress" cx="140" cy="140" r="${RADIUS}"
-              stroke-dasharray="${CIRCUMFERENCE}" stroke-dashoffset="${CIRCUMFERENCE}"></circle>
-            <circle class="knob" id="knob" cx="260" cy="140" r="14"></circle>
+        <div class="title">${title}</div>
+        <div class="dial-wrap">
+          <svg class="dial" id="dial" viewBox="0 0 200 200" role="slider" tabindex="0"
+            aria-label="Timer duration" aria-valuemin="0" aria-valuemax="${this._max}" aria-valuenow="0">
+            <path class="ring-hit" d="${arcPath(1)}"></path>
+            <path class="track" d="${arcPath(1)}"></path>
+            <path class="value" id="value-arc" d=""></path>
+            <circle class="start-dot" cx="${sx}" cy="${sy}" r="4"></circle>
+            <circle class="knob" id="knob" cx="${sx}" cy="${sy}" r="11"></circle>
           </svg>
-          <div class="dial-center">
-            <div class="dial-value" id="dial-value">0 min</div>
+          <div class="center">
+            <div class="big" id="big">Off</div>
+            <div class="sub"><span class="sub-prefix" id="sub-prefix"></span><span id="sub"></span></div>
+            <button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
+              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
+            </button>
           </div>
         </div>
-        <div class="chips" id="chips">${presets}</div>
-        <div class="actions">
-          <button class="btn-cancel" id="btn-cancel" type="button">Cancel</button>
-          <button class="btn-off" id="btn-off" type="button" hidden>Turn off</button>
-          <button class="btn-start" id="btn-start" type="button">Start</button>
+        <div class="controls">
+          <button class="round" id="minus" type="button" aria-label="Less time">−</button>
+          <button class="round" id="plus" type="button" aria-label="More time">+</button>
         </div>
-      </dialog>
+        <div class="chips" id="chips">${presets}</div>
+      </ha-card>
     `;
 
     const $ = (id) => this.shadowRoot.getElementById(id);
     this._els = {
-      display: $("display"),
-      value: $("value"),
-      sub: $("sub"),
-      dialog: $("dialog"),
       dial: $("dial"),
-      progress: $("progress"),
+      valueArc: $("value-arc"),
       knob: $("knob"),
-      dialValue: $("dial-value"),
+      big: $("big"),
+      sub: $("sub"),
+      subPrefix: $("sub-prefix"),
+      stop: $("stop"),
+      minus: $("minus"),
+      plus: $("plus"),
       chips: $("chips"),
-      btnStart: $("btn-start"),
-      btnOff: $("btn-off"),
-      btnCancel: $("btn-cancel"),
     };
     this._bindEvents();
   }
@@ -227,108 +278,140 @@ class HourlyTimerCard extends HTMLElement {
   _bindEvents() {
     const els = this._els;
 
-    els.display.addEventListener("click", () => this._openDialog());
-
     els.dial.addEventListener("pointerdown", (e) => {
+      if (!this._available || !this._isOnRing(e)) return;
+      e.preventDefault();
       this._dragging = true;
       els.dial.setPointerCapture(e.pointerId);
-      this._setDialFromPointer(e, false);
+      this._cancelCommit();
+      this._setPreview(this._valueFromPointer(e, false));
     });
     els.dial.addEventListener("pointermove", (e) => {
-      if (this._dragging) this._setDialFromPointer(e, true);
+      if (this._dragging) this._setPreview(this._valueFromPointer(e, true));
     });
     const endDrag = (e) => {
+      if (!this._dragging) return;
       this._dragging = false;
       if (els.dial.hasPointerCapture(e.pointerId)) els.dial.releasePointerCapture(e.pointerId);
+      this._scheduleCommit();
     };
     els.dial.addEventListener("pointerup", endDrag);
     els.dial.addEventListener("pointercancel", endDrag);
 
+    els.dial.addEventListener("keydown", (e) => {
+      const delta = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 }[e.key];
+      if (delta) {
+        e.preventDefault();
+        this._nudge(delta);
+      }
+    });
+
+    els.minus.addEventListener("click", () => this._nudge(-1));
+    els.plus.addEventListener("click", () => this._nudge(1));
+    els.stop.addEventListener("click", () => {
+      this._cancelCommit();
+      this._preview = 0;
+      this._send(0);
+    });
     els.chips.addEventListener("click", (e) => {
       const chip = e.target.closest(".chip");
-      if (!chip) return;
-      this._setValue(Number(chip.dataset.minutes));
-      els.dialog.close();
-    });
-
-    els.btnStart.addEventListener("click", () => {
-      this._setValue(this._dialValue);
-      els.dialog.close();
-    });
-    els.btnOff.addEventListener("click", () => {
-      this._setValue(0);
-      els.dialog.close();
-    });
-    els.btnCancel.addEventListener("click", () => els.dialog.close());
-
-    // Close when clicking the backdrop.
-    els.dialog.addEventListener("click", (e) => {
-      if (e.target === els.dialog) els.dialog.close();
+      if (!chip || !this._available) return;
+      this._cancelCommit();
+      this._preview = Math.max(0, Math.round(Number(chip.dataset.minutes)));
+      this._send(this._preview);
     });
   }
 
-  _openDialog() {
-    const stateObj = this._stateObj;
-    if (!stateObj || stateObj.state === "unavailable") return;
-    const remaining = this._remainingSeconds();
-    const start = remaining && remaining > 0
-      ? Math.round(remaining / 60)
-      : Number(stateObj.state) || 0;
-    this._updateDial(this._clamp(start));
-    this._els.btnOff.hidden = !this._isRunning();
-    this._els.dialog.showModal();
+  /** Only presses on the ring start a drag (the middle holds the stop button). */
+  _isOnRing(e) {
+    const [x, y] = this._toSvg(e);
+    const d = Math.hypot(x - CX, y - CY);
+    return d > R - 28 && d < R + 28;
   }
 
-  _setDialFromPointer(e, moving) {
+  _toSvg(e) {
     const rect = this._els.dial.getBoundingClientRect();
-    const dx = e.clientX - (rect.left + rect.width / 2);
-    const dy = e.clientY - (rect.top + rect.height / 2);
-    let angle = (Math.atan2(dy, dx) * 180) / Math.PI + 90;
-    if (angle < 0) angle += 360;
+    return [
+      ((e.clientX - rect.left) / rect.width) * 200,
+      ((e.clientY - rect.top) / rect.height) * 200,
+    ];
+  }
 
-    const { max } = this._limits;
-    const step = Math.max(Number(this.config.dial_step) || 1, this._limits.step);
-    let value = Math.round(((angle / 360) * max) / step) * step;
+  _valueFromPointer(e, moving) {
+    const [x, y] = this._toSvg(e);
+    const angle = (Math.atan2(y - CY, x - CX) * 180) / Math.PI;
+    let rel = (angle - START_ANGLE + 720) % 360;
+    if (rel > SWEEP) rel = rel > SWEEP + (360 - SWEEP) / 2 ? 0 : SWEEP; // pointer is in the gap
+    let value = this._clamp((rel / SWEEP) * this._max);
 
-    // Don't jump from the maximum to zero (or back) when crossing the top.
-    if (moving && Math.abs(value - this._dialValue) > max / 2) {
-      value = this._dialValue > max / 2 ? max : 0;
+    // Don't jump from one end of the ring to the other while dragging.
+    const current = this._displayMinutes();
+    if (moving && Math.abs(value - current) > this._max / 2) {
+      value = current > this._max / 2 ? this._max : 0;
     }
-    this._updateDial(this._clamp(value));
+    return value;
   }
 
-  _updateDial(value) {
-    const { max } = this._limits;
-    this._dialValue = value;
-    const fraction = max > 0 ? value / max : 0;
-    this._els.progress.setAttribute("stroke-dashoffset", String(CIRCUMFERENCE * (1 - fraction)));
-    const radians = fraction * 2 * Math.PI;
-    this._els.knob.setAttribute("cx", String(140 + RADIUS * Math.cos(radians)));
-    this._els.knob.setAttribute("cy", String(140 + RADIUS * Math.sin(radians)));
-    this._els.dialValue.textContent = formatMinutes(value);
-    this._els.btnStart.disabled = value <= 0;
+  _nudge(direction) {
+    if (!this._available) return;
+    this._cancelCommit();
+    const base = this._preview ?? (this._isRunning() ? this._remainingMinutes() : 0);
+    // Snap to the step first so +/- lands on round numbers.
+    const snapped = direction > 0
+      ? Math.floor(base / this._step) * this._step
+      : Math.ceil(base / this._step) * this._step;
+    this._setPreview(this._clamp(snapped + direction * this._step));
+    this._scheduleCommit();
   }
 
-  _clamp(value) {
-    const { min, max, step } = this._limits;
-    const stepped = Math.round(value / step) * step;
-    return Math.min(max, Math.max(min, stepped));
+  _setPreview(value) {
+    this._preview = value;
+    this._update();
   }
 
-  _isRunning() {
-    const remaining = this._remainingSeconds();
-    if (remaining !== null) return remaining > 0;
-    // input_number fallback: no end time, so a non-zero value means running.
-    return (Number(this._stateObj && this._stateObj.state) || 0) > 0;
+  _scheduleCommit() {
+    this._cancelCommit();
+    this._commitTimer = setTimeout(() => {
+      this._commitTimer = null;
+      if (this._preview !== null) this._send(this._preview);
+    }, COMMIT_DELAY);
+    this._update();
   }
 
-  _setValue(value) {
+  _cancelCommit() {
+    if (this._commitTimer) {
+      clearTimeout(this._commitTimer);
+      this._commitTimer = null;
+    }
+  }
+
+  _send(value) {
+    const stateObj = this._stateObj;
+    if (!stateObj) return;
     const domain = this.config.entity.split(".")[0];
+    const entityMax = Number(stateObj.attributes.max ?? 1440) || 1440;
+    this._sending = true;
+    this._sentAt = stateObj.last_updated;
+    // Keep showing the chosen value until Home Assistant reports the new state.
+    clearTimeout(this._previewTimeout);
+    this._previewTimeout = setTimeout(() => this._clearPreview(), 3000);
+    this._update();
     this._hass
-      .callService(domain, "set_value", { entity_id: this.config.entity, value: this._clamp(value) })
+      .callService(domain, "set_value", {
+        entity_id: this.config.entity,
+        value: Math.min(entityMax, Math.max(0, value)),
+      })
       .catch((err) => {
+        this._clearPreview();
         this._els.sub.textContent = `Error: ${err.message || err}`;
       });
+  }
+
+  _clearPreview() {
+    clearTimeout(this._previewTimeout);
+    this._preview = null;
+    this._sending = false;
+    this._update();
   }
 
   // ---------------------------------------------------------------------------
@@ -338,38 +421,72 @@ class HourlyTimerCard extends HTMLElement {
   _update() {
     const els = this._els;
     const stateObj = this._stateObj;
+    const dial = els.dial;
 
-    if (!stateObj || stateObj.state === "unavailable") {
+    // A state update from Home Assistant confirms the value we sent.
+    if (this._sending && stateObj && stateObj.last_updated !== this._sentAt) {
+      clearTimeout(this._previewTimeout);
+      this._preview = null;
+      this._sending = false;
+    }
+
+    els.subPrefix.textContent = "";
+    const controls = [els.minus, els.plus, ...els.chips.querySelectorAll("button")];
+    if (!this._available) {
       this._stopTick();
-      els.display.classList.add("unavailable");
-      els.display.classList.remove("running");
-      els.value.textContent = "—";
+      dial.classList.add("unavailable");
+      els.big.textContent = "—";
       els.sub.textContent = stateObj ? "Unavailable" : `Entity not found: ${this.config.entity}`;
+      els.stop.hidden = true;
+      controls.forEach((b) => (b.disabled = true));
       return;
     }
-    els.display.classList.remove("unavailable");
+    dial.classList.remove("unavailable");
+    controls.forEach((b) => (b.disabled = false));
+
+    const running = this._isRunning();
+    const minutes = this._displayMinutes();
+    const fraction = this._max > 0 ? Math.min(1, minutes / this._max) : 0;
+    const [kx, ky] = polar(START_ANGLE + SWEEP * fraction);
+
+    els.valueArc.setAttribute("d", arcPath(fraction));
+    els.knob.setAttribute("cx", String(kx));
+    els.knob.setAttribute("cy", String(ky));
+    dial.classList.toggle("idle", !running && this._preview === null);
+    dial.setAttribute("aria-valuemax", String(this._max));
+    dial.setAttribute("aria-valuenow", String(Math.round(minutes)));
+    dial.setAttribute("aria-valuetext", formatMinutes(minutes));
+
+    if (this._preview !== null) {
+      this._stopTick();
+      els.big.textContent = this._preview === 0 ? "Off" : formatMinutes(this._preview);
+      if (this._dragging) els.sub.textContent = "Release to start";
+      else els.sub.textContent = this._preview === 0 ? "Turning off…" : "Starting…";
+      els.stop.hidden = true;
+      return;
+    }
 
     const remaining = this._remainingSeconds();
-    if (remaining !== null && remaining > 0) {
-      els.display.classList.add("running");
-      els.value.textContent = formatCountdown(remaining);
+    if (running && remaining !== null) {
+      els.big.textContent = formatCountdown(remaining);
       const endsAt = new Date(stateObj.attributes.ends_at);
-      els.sub.textContent = `Off at ${endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+      els.subPrefix.textContent = "Off at ";
+      els.sub.textContent = endsAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      els.stop.hidden = false;
       this._startTick();
       return;
     }
 
     this._stopTick();
-    const value = Number(stateObj.state) || 0;
-    if (remaining === null && value > 0) {
-      // input_number without an end time: show the configured duration.
-      els.display.classList.add("running");
-      els.value.textContent = formatMinutes(value);
-      els.sub.textContent = "Tap to change";
+    if (running) {
+      // input_number without an end time.
+      els.big.textContent = formatMinutes(minutes);
+      els.sub.textContent = "Running";
+      els.stop.hidden = false;
     } else {
-      els.display.classList.remove("running");
-      els.value.textContent = "Off";
-      els.sub.textContent = "Tap to set a timer";
+      els.big.textContent = "Off";
+      els.sub.textContent = "Drag the ring to start";
+      els.stop.hidden = true;
     }
   }
 
@@ -394,8 +511,8 @@ if (!customElements.get("hourly-timer-card")) {
   window.customCards.push({
     type: "hourly-timer-card",
     name: "Hourly Timer Card",
-    description: "Turn a device on for a set time and see the countdown.",
-    preview: false,
+    description: "Circular slider to turn a device on for a set time, with a live countdown.",
+    preview: true,
     documentationURL: "https://github.com/hod25/hourly-timer-integration",
   });
 

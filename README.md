@@ -51,14 +51,17 @@ entity: number.boiler_timer_duration
 title: Boiler
 ```
 
-Tap the card to open the dial. Drag to choose a time or pick a preset, then press **Start**. While a timer runs, the dialog also has a **Turn off** button.
+The card is a circular slider. Drag the ring to choose a time and release it to start. You can also use the **−/+** buttons or a preset. While the timer runs, the ring shrinks as time passes and the center shows a live countdown and a stop button.
 
 | Option | Default | Description |
 | --- | --- | --- |
 | `entity` | *required* | The timer's `number` entity. An `input_number` also works, but without the countdown. |
-| `title` | `Timer` | Card title. |
-| `presets` | `[15, 30, 60, 120]` | Quick buttons, in minutes. |
-| `dial_step` | `5` | Minutes per step when dragging the dial. |
+| `title` | none | Card title. |
+| `max_minutes` | `240` | Time at the end of the ring. It can't be higher than the entity's maximum (1440). |
+| `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
+| `presets` | `[15, 30, 60]` | Quick buttons, in minutes. Use `[]` to hide them. |
+
+To change the ring color, set `--hourly-timer-color` with [card-mod](https://github.com/thomasloven/lovelace-card-mod) or a theme.
 
 ## Using it in automations
 
