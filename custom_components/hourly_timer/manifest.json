@@ -10,5 +10,5 @@
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/hod25/hourly-timer-integration/issues",
   "requirements": [],
-  "version": "3.2.1"
+  "version": "3.3.0"
 }

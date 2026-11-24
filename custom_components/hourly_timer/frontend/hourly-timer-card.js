@@ -4,7 +4,8 @@
  * A circular slider in a single card. The ring is a timeline starting now:
  * - the end handle (on the ring) sets how long the device stays on;
  * - the start handle (▶ on the outer track) delays the start to a later time.
- * Release to apply. While running or scheduled, the ring shows the remaining
+ * Release to apply. Tapping the center turns the device on or off without a
+ * timer (can be disabled with `center_tap: none`). While running or scheduled, the ring shows the remaining
  * time with a live countdown.
  *
  * Works with the integration's `number.*_timer_duration` entity (recommended)
@@ -12,7 +13,7 @@
  */
 
 (() => {
-const CARD_VERSION = "3.2.1";
+const CARD_VERSION = "3.3.0";
 
 // Geometry (SVG user units). The ring is a 270° arc with the gap at the bottom.
 const CX = 100;
@@ -94,7 +95,7 @@ class HourlyTimerCard extends HTMLElement {
     if (domain !== "number" && domain !== "input_number") {
       throw new Error("The entity must be a number or input_number entity");
     }
-    this.config = { max_minutes: 240, dial_step: 5, presets: [15, 30, 60], ...config };
+    this.config = { max_minutes: 240, dial_step: 5, presets: [15, 30, 60], center_tap: "toggle", ...config };
     if (this.shadowRoot.firstChild) {
       this.shadowRoot.innerHTML = "";
       this._els = null;
@@ -177,6 +178,47 @@ class HourlyTimerCard extends HTMLElement {
     return { mode: "idle" };
   }
 
+  /** The device the timer controls (only known for the integration's entity). */
+  get _targetId() {
+    const s = this._stateObj;
+    return (s && s.attributes.target_entity) || null;
+  }
+
+  get _centerTapEnabled() {
+    return this.config.center_tap !== "none" && Boolean(this._targetId);
+  }
+
+  /** Whether the controlled device is on, including a toggle we just sent. */
+  _targetOn() {
+    const id = this._targetId;
+    if (!id) return false;
+    const t = this._hass.states[id];
+    const real = Boolean(t) && !["off", "unavailable", "unknown"].includes(t.state);
+    const pending = this._targetPending;
+    if (pending) {
+      if (Date.now() > pending.until || real === (pending.want === "on")) {
+        this._targetPending = null;
+      } else {
+        return pending.want === "on";
+      }
+    }
+    return real;
+  }
+
+  _toggleTarget(on) {
+    const id = this._targetId;
+    if (!id) return;
+    this._targetPending = { want: on ? "on" : "off", until: Date.now() + 4000 };
+    this._update();
+    this._hass
+      .callService(id.split(".")[0], on ? "turn_on" : "turn_off", { entity_id: id })
+      .catch((err) => {
+        this._targetPending = null;
+        this._update();
+        this._els.sub.textContent = `Error: ${err.message || err}`;
+      });
+  }
+
   /** What the ring shows: the preview while the user is choosing, else the entity. */
   _view() {
     const now = Date.now();
@@ -191,6 +233,7 @@ class HourlyTimerCard extends HTMLElement {
       };
     }
     const t = this._entityTimer();
+    if (t.mode === "idle" && this._targetOn()) return { mode: "manual", preview: false };
     return { ...t, preview: false };
   }
 
@@ -248,6 +291,17 @@ class HourlyTimerCard extends HTMLElement {
         .big { font-size: clamp(24px, 12cqw, 42px); font-weight: 500; line-height: 1.1; color: var(--primary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
         .sub { font-size: clamp(11px, 5cqw, 14px); color: var(--secondary-text-color); min-height: 1.3em; white-space: nowrap; }
         @container (max-width: 200px) { .sub-prefix { display: none; } }
+        .center-tap {
+          position: absolute; left: 25.5%; top: 25.5%; width: 49%; aspect-ratio: 1; border-radius: 50%;
+          border: none; background: transparent; cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent;
+        }
+        .center-tap:hover { background: rgba(127, 127, 127, 0.08); }
+        .center-tap:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+        .manual .on { opacity: 0.55; animation: ht-pulse 2.4s ease-in-out infinite; }
+        @keyframes ht-pulse { 50% { opacity: 0.25; } }
+        @media (prefers-reduced-motion: reduce) { .manual .on { animation: none; } }
+        .manual .knob, .manual .start-knob, .manual .outer-track, .manual .wait { display: none; }
+        .sub.warn { color: var(--warning-color, #ffa600); font-weight: 500; }
         .stop {
           pointer-events: auto; margin-top: 6px; width: clamp(32px, 14cqw, 42px); height: clamp(32px, 14cqw, 42px); flex-shrink: 0;
           border-radius: 50%; border: none; cursor: pointer; padding: 0;
@@ -293,10 +347,11 @@ class HourlyTimerCard extends HTMLElement {
               <path d="M -2.5 -4 L 4 0 L -2.5 4 Z"></path>
             </g>
           </svg>
+          <button class="center-tap" id="center-tap" type="button" aria-label="Turn on" hidden></button>
           <div class="center">
             <div class="cap" id="cap"></div>
             <div class="big" id="big">Off</div>
-            <div class="sub"><span class="sub-prefix" id="sub-prefix"></span><span id="sub"></span></div>
+            <div class="sub" id="sub-wrap"><span class="sub-prefix" id="sub-prefix"></span><span id="sub"></span></div>
             <button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
               <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
             </button>
@@ -322,6 +377,8 @@ class HourlyTimerCard extends HTMLElement {
       big: $("big"),
       sub: $("sub"),
       subPrefix: $("sub-prefix"),
+      subWrap: $("sub-wrap"),
+      centerTap: $("center-tap"),
       stop: $("stop"),
       minus: $("minus"),
       plus: $("plus"),
@@ -346,7 +403,7 @@ class HourlyTimerCard extends HTMLElement {
       this._drag = {
         handle,
         startAt: v.mode === "scheduled" ? v.startAt : null,
-        duration: v.mode === "idle" || v.mode === "off" ? 0 : Math.max(0, (v.endAt - Math.max(v.startAt, now)) / MINUTE),
+        duration: ["idle", "off", "manual"].includes(v.mode) ? 0 : Math.max(0, (v.endAt - Math.max(v.startAt, now)) / MINUTE),
       };
       if (handle === "start" && this._drag.duration === 0) {
         // Starting a schedule from idle: give it a sensible length to move around.
@@ -378,8 +435,18 @@ class HourlyTimerCard extends HTMLElement {
     els.plus.addEventListener("click", () => this._nudge(1));
     els.stop.addEventListener("click", () => {
       this._cancelCommit();
+      if (this._view().mode === "manual") {
+        this._toggleTarget(false);
+        return;
+      }
       this._preview = { startAt: null, duration: 0 };
       this._send();
+    });
+    els.centerTap.addEventListener("click", () => {
+      if (!this._available || !this._centerTapEnabled) return;
+      const mode = this._view().mode;
+      if (mode === "idle") this._toggleTarget(true);
+      else if (mode === "manual") this._toggleTarget(false);
     });
     els.chips.addEventListener("click", (e) => {
       const chip = e.target.closest(".chip");
@@ -412,7 +479,7 @@ class HourlyTimerCard extends HTMLElement {
     const [x, y] = this._toSvg(e);
     const d = Math.hypot(x - CX, y - CY);
     if (d >= 56 && d < 91) return "end";
-    if (d >= 91 && d <= 114 && this._canSchedule) return "start";
+    if (d >= 91 && d <= 114 && this._canSchedule && this._view().mode !== "manual") return "start";
     return null;
   }
 
@@ -453,7 +520,7 @@ class HourlyTimerCard extends HTMLElement {
     this._cancelCommit();
     const v = this._view();
     const startAt = v.mode === "scheduled" ? v.startAt : null;
-    const base = v.mode === "idle" || v.mode === "off" ? 0 : (v.endAt - Math.max(v.startAt, Date.now())) / MINUTE;
+    const base = ["idle", "off", "manual"].includes(v.mode) ? 0 : (v.endAt - Math.max(v.startAt, Date.now())) / MINUTE;
     const step = this._step;
     const snapped = direction > 0 ? Math.floor(base / step) * step : Math.ceil(base / step) * step;
     const startOff = startAt ? (startAt - Date.now()) / MINUTE : 0;
@@ -540,6 +607,8 @@ class HourlyTimerCard extends HTMLElement {
     els.subPrefix.textContent = "";
     els.cap.textContent = "";
     els.hint.textContent = "";
+    els.subWrap.classList.remove("warn");
+    els.centerTap.hidden = true;
     const controls = [els.minus, els.plus, ...els.chips.querySelectorAll("button")];
     dial.classList.toggle("no-schedule", !this._canSchedule);
 
@@ -558,11 +627,13 @@ class HourlyTimerCard extends HTMLElement {
     const now = Date.now();
     const max = this._max;
     const v = this._view();
+    const manual = v.mode === "manual";
     const active = v.mode === "running" || v.mode === "scheduled";
     const startOff = active ? Math.max(0, (v.startAt - now) / MINUTE) : 0;
     const endOff = active ? Math.max(startOff, (v.endAt - now) / MINUTE) : 0;
     const fs = Math.min(1, startOff / max);
-    const fe = Math.min(1, endOff / max);
+    const fe = manual ? 1 : Math.min(1, endOff / max);
+    dial.classList.toggle("manual", manual);
 
     els.wait.setAttribute("d", arcPath(0, fs, R));
     els.on.setAttribute("d", arcPath(fs, fe, R));
@@ -571,7 +642,7 @@ class HourlyTimerCard extends HTMLElement {
     els.knob.setAttribute("cy", String(ky));
     const [sx, sy] = polar(START_ANGLE + SWEEP * fs, R_START);
     els.startKnob.setAttribute("transform", `translate(${sx} ${sy})`);
-    dial.classList.toggle("idle", !active);
+    dial.classList.toggle("idle", !active && !manual);
     dial.setAttribute("aria-valuemax", String(max));
     dial.setAttribute("aria-valuenow", String(Math.round(endOff - startOff)));
     dial.setAttribute("aria-valuetext", formatMinutes(endOff - startOff));
@@ -590,7 +661,9 @@ class HourlyTimerCard extends HTMLElement {
         if (!dragging) els.hint.textContent = this._sending ? "Scheduling…" : "";
       } else {
         els.big.textContent = formatMinutes(v.duration);
-        els.sub.textContent = dragging ? "Release to start" : "Starting…";
+        els.sub.textContent = dragging
+          ? (this._targetOn() ? "Release to set the timer" : "Release to start")
+          : "Starting…";
       }
       return;
     }
@@ -624,10 +697,34 @@ class HourlyTimerCard extends HTMLElement {
     }
 
     this._stopTick();
+    if (manual) {
+      els.big.textContent = "On";
+      els.sub.textContent = "No timer";
+      els.subWrap.classList.add("warn");
+      els.stop.hidden = false;
+      els.stop.title = "Turn off";
+      els.stop.setAttribute("aria-label", "Turn off");
+      els.hint.textContent = "Drag the ring to turn it off later";
+      if (this._centerTapEnabled) {
+        els.centerTap.hidden = false;
+        els.centerTap.setAttribute("aria-label", "Turn off");
+      }
+      return;
+    }
+
     els.big.textContent = "Off";
-    els.sub.textContent = "Drag the ring to start";
     els.stop.hidden = true;
-    if (this._canSchedule) els.hint.textContent = "Drag ▶ on the outer ring to start later";
+    if (this._centerTapEnabled) {
+      els.sub.textContent = "Tap to turn on";
+      els.centerTap.hidden = false;
+      els.centerTap.setAttribute("aria-label", "Turn on");
+      els.hint.textContent = this._canSchedule
+        ? "Drag the ring for a timer, or ▶ to start later"
+        : "Drag the ring for a timer";
+    } else {
+      els.sub.textContent = "Drag the ring to start";
+      if (this._canSchedule) els.hint.textContent = "Drag ▶ on the outer ring to start later";
+    }
   }
 
   _startTick() {
