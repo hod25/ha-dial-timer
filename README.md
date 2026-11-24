@@ -1,4 +1,4 @@
-<img src="custom_components/hourly_timer/brand/icon.png" alt="" width="72" align="right">
+<img src="https://raw.githubusercontent.com/hod25/hourly-timer-integration/main/custom_components/hourly_timer/brand/icon.png" alt="" width="72" align="right">
 
 # Dial Timer for Home Assistant
 
@@ -10,6 +10,8 @@ Turn a device on now or later for a set number of minutes, from a circular dial.
 Useful for an electric water heater (boiler), fans, garden lights, irrigation, or anything else you tend to forget to turn off.
 
 It includes a dashboard card that shows a live countdown and a dial for setting the time.
+
+<img src="https://raw.githubusercontent.com/hod25/hourly-timer-integration/main/docs/images/dial-timer-card.png" alt="The Dial Timer card in dark mode: a circular ring with a start handle, minus and plus buttons, and preset buttons" width="400">
 
 > The integration's domain is `hourly_timer` (its original name), so the `hourly_timer.schedule` action and the `custom:hourly-timer-card` card type keep that name.
 
