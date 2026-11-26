@@ -750,7 +750,7 @@ if (!customElements.get("hourly-timer-card")) {
     name: "Dial Timer Card",
     description: "Circular slider to turn a device on now or later for a set time, with a live countdown.",
     preview: true,
-    documentationURL: "https://github.com/hod25/hourly-timer-integration",
+    documentationURL: "https://github.com/hod25/ha-dial-timer",
   });
 
   console.info(
