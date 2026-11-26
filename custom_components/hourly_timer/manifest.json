@@ -5,10 +5,10 @@
   "codeowners": ["@hod25"],
   "config_flow": true,
   "dependencies": ["frontend", "http"],
-  "documentation": "https://github.com/hod25/hourly-timer-integration",
+  "documentation": "https://github.com/hod25/ha-dial-timer",
   "integration_type": "helper",
   "iot_class": "calculated",
-  "issue_tracker": "https://github.com/hod25/hourly-timer-integration/issues",
+  "issue_tracker": "https://github.com/hod25/ha-dial-timer/issues",
   "requirements": [],
   "version": "3.3.0"
 }

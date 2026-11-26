@@ -24,8 +24,8 @@ Work for the repository owner, GitHub user **hod25**. They write in Hebrew. Writ
 
 | Item | Where |
 | --- | --- |
-| Repository | https://github.com/hod25/hourly-timer-integration (domain `hourly_timer`, display name "Dial Timer") |
-| Latest release | v3.2.0, https://github.com/hod25/hourly-timer-integration/releases/tag/v3.2.0 |
+| Repository | https://github.com/hod25/ha-dial-timer (domain `hourly_timer`, display name "Dial Timer") |
+| Latest release | v3.2.0, https://github.com/hod25/ha-dial-timer/releases/tag/v3.2.0 |
 | Card source | `custom_components/hourly_timer/frontend/hourly-timer-card.js`, a vanilla web component with no build step |
 | Backend | `timer_logic.py`, `number.py` (number entity + `hourly_timer.schedule` action) and `sensor.py` (start and end timestamps) |
 | Tests | `tests/`, 27 pytest tests (pytest-homeassistant-custom-component) |
