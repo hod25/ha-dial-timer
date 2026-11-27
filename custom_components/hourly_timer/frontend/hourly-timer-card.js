@@ -847,7 +847,7 @@ class HourlyTimerCard extends HTMLElement {
         }
         ha-card:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
         .ring { position: relative; width: 40px; height: 40px; flex: none; }
-        .ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+        .ring > svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
         .bg { fill: rgba(127, 127, 127, 0.12); transition: fill 0.3s; }
         .prog { fill: none; stroke: var(--ht-color); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset 0.4s; }
         ha-icon {
