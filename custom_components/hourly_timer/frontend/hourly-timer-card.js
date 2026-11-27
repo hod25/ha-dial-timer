@@ -8,8 +8,15 @@
  * timer (can be disabled with `center_tap: none`). While running or scheduled, the ring shows the remaining
  * time with a live countdown.
  *
+ * `dial_scale: progressive` moves the first `fine_minutes` (15) one minute at a
+ * time and the rest by `dial_step`, each step taking the same space on the ring.
+ *
  * The card is compact by default. `show_controls` adds −/+ buttons,
  * `show_presets` adds quick time chips and `show_hints` adds a help line.
+ *
+ * `layout: tile` shows a one-row tile instead (icon with a small progress ring,
+ * name and countdown). Tapping it opens the dial in a popup, which shows −/+
+ * and the quick times unless `show_controls` / `show_presets` are set to false.
  *
  * Works with the integration's `number.*_timer_duration` entity (recommended)
  * or with any `input_number` (without scheduling or countdown).
@@ -102,10 +109,12 @@ class HourlyTimerCard extends HTMLElement {
     // A presets list the user wrote themselves means they want the chips
     // (cards configured before the compact default keep them).
     const userPresets = Array.isArray(config.presets) && config.presets.length > 0;
+    this._rawConfig = config;
     this.config = {
       max_minutes: 240,
       dial_step: 5,
       center_tap: "toggle",
+      layout: "dial",
       show_controls: false,
       show_presets: userPresets,
       show_hints: false,
@@ -122,8 +131,12 @@ class HourlyTimerCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     if (!this.config) return;
-    if (!this._els) this._render();
+    if (!this._els) {
+      if (this._isTile) this._renderTile();
+      else this._render();
+    }
     this._update();
+    if (this._popupCard) this._popupCard.hass = hass;
   }
 
   connectedCallback() {
@@ -132,6 +145,7 @@ class HourlyTimerCard extends HTMLElement {
 
   disconnectedCallback() {
     this._stopTick();
+    if (this._els && this._els.dialog && this._els.dialog.open) this._els.dialog.close();
   }
 
   static getConfigForm() {
@@ -140,12 +154,27 @@ class HourlyTimerCard extends HTMLElement {
         { name: "entity", required: true, selector: { entity: { domain: ["number", "input_number"] } } },
         { name: "title", selector: { text: {} } },
         {
+          name: "layout",
+          selector: { select: { mode: "box", options: [
+            { value: "dial", label: "Dial" },
+            { value: "tile", label: "Tile (opens the dial)" },
+          ] } },
+        },
+        { name: "icon", selector: { icon: {} } },
+        {
           type: "grid",
           name: "",
           schema: [
             { name: "max_minutes", selector: { number: { min: 10, max: 1440, step: 5, mode: "box", unit_of_measurement: "min" } } },
             { name: "dial_step", selector: { number: { min: 1, max: 60, step: 1, mode: "box", unit_of_measurement: "min" } } },
           ],
+        },
+        {
+          name: "dial_scale",
+          selector: { select: { mode: "dropdown", options: [
+            { value: "linear", label: "Even steps" },
+            { value: "progressive", label: "1-minute steps first, then the step above" },
+          ] } },
         },
         {
           name: "center_tap",
@@ -161,9 +190,12 @@ class HourlyTimerCard extends HTMLElement {
       computeLabel: (s) => ({
         entity: "Timer entity",
         title: "Title",
+        layout: "Layout",
+        icon: "Icon (tile)",
         max_minutes: "Ring length",
         dial_step: "Step",
         center_tap: "Tapping the center",
+        dial_scale: "Ring scale",
         show_controls: "Show −/+ buttons",
         show_presets: "Show quick times",
         show_hints: "Show hints",
@@ -176,11 +208,17 @@ class HourlyTimerCard extends HTMLElement {
     return !this.config.show_controls && !this.config.show_presets && !this.config.show_hints;
   }
 
+  get _isTile() {
+    return this.config.layout === "tile";
+  }
+
   getCardSize() {
+    if (this._isTile) return 1;
     return this._compact ? 4 : 6;
   }
 
   getGridOptions() {
+    if (this._isTile) return { columns: 6, rows: 1, min_columns: 4, min_rows: 1 };
     return this._compact
       ? { columns: 6, rows: "auto", min_columns: 4 }
       : { columns: 12, rows: "auto", min_columns: 6 };
@@ -299,14 +337,55 @@ class HourlyTimerCard extends HTMLElement {
 
   /** Round a timestamp to the step on the clock (e.g. 14:00, 14:05), never into the past. */
   _snapStart(ms) {
-    const stepMs = this._step * MINUTE;
     const now = Date.now();
+    const stepMs = this._stepAt((ms - now) / MINUTE) * MINUTE;
     const snapped = Math.round(ms / stepMs) * stepMs;
     return snapped - now < stepMs / 2 ? null : snapped;
   }
 
-  _snapDuration(minutes) {
-    return Math.max(0, Math.round(minutes / this._step) * this._step);
+  _snapDuration(minutes, at = minutes) {
+    const step = this._stepAt(at);
+    return Math.max(0, Math.round(minutes / step) * step);
+  }
+
+  /**
+   * `dial_scale: progressive`: the first `fine_minutes` move one minute at a
+   * time, the rest by `dial_step`. Every step takes the same space on the ring.
+   */
+  get _progressive() {
+    return this.config.dial_scale === "progressive" && this._step > 1 && this._max > this._fine;
+  }
+
+  get _fine() {
+    return Math.max(1, Number(this.config.fine_minutes) || 15);
+  }
+
+  /** The step at a point on the ring; `dir` says which way a −/+ press goes. */
+  _stepAt(minutes, dir = 0) {
+    if (!this._progressive) return this._step;
+    const fine = this._fine;
+    if (dir < 0) return minutes <= fine ? 1 : this._step;
+    return minutes < fine ? 1 : this._step;
+  }
+
+  /** Minutes from now → fraction of the ring (0..1). */
+  _toFrac(minutes) {
+    const max = this._max;
+    const m = Math.min(max, Math.max(0, minutes));
+    if (!this._progressive) return m / max;
+    const fine = this._fine;
+    const steps = (x) => Math.min(x, fine) + Math.max(0, x - fine) / this._step;
+    return steps(m) / steps(max);
+  }
+
+  /** Fraction of the ring (0..1) → minutes from now. */
+  _fromFrac(frac) {
+    const max = this._max;
+    if (!this._progressive) return frac * max;
+    const fine = this._fine;
+    const total = fine + (max - fine) / this._step;
+    const st = Math.min(1, Math.max(0, frac)) * total;
+    return st <= fine ? st : fine + (st - fine) * this._step;
   }
 
   // ---------------------------------------------------------------------------
@@ -319,6 +398,11 @@ class HourlyTimerCard extends HTMLElement {
       .map((p) => `<button class="chip" type="button" data-minutes="${Number(p)}">${formatMinutes(p)}</button>`)
       .join("");
 
+    // With −/+ shown, the stop button sits between them in the ring's opening.
+    const stopButton = `<button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
+      <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
+    </button>`;
+
     this.shadowRoot.innerHTML = `
       <style>
         :host { --ht-color: var(--hourly-timer-color, var(--state-active-color, var(--primary-color))); }
@@ -326,10 +410,9 @@ class HourlyTimerCard extends HTMLElement {
         ha-card.compact { padding: 10px 12px 12px; justify-content: center; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); margin-bottom: 4px; }
         .compact .title { font-size: 14px; text-align: center; margin-bottom: 0; }
-        /* The ring's opening leaves empty space at the bottom: let the card end there. */
-        .compact .dial-wrap { margin-bottom: -11%; }
         .title:empty { display: none; }
-        .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto; container-type: inline-size; }
+        /* The ring's opening leaves empty space at the bottom: let the card end there (11% of the dial). */
+        .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto calc(min(100%, 320px) * -0.11); container-type: inline-size; }
         .dial { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
         .dial:focus { outline: none; }
         .dial:focus-visible .track { stroke: var(--primary-color); }
@@ -337,6 +420,7 @@ class HourlyTimerCard extends HTMLElement {
         .track { fill: none; stroke: var(--divider-color, rgba(127,127,127,0.3)); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
         .outer-track { fill: none; stroke: var(--divider-color, rgba(127,127,127,0.3)); stroke-width: 2; stroke-dasharray: 1 5; stroke-linecap: round; pointer-events: none; }
         .wait { fill: none; stroke: var(--ht-color); stroke-width: 3; stroke-dasharray: 2 6; stroke-linecap: round; opacity: 0.7; pointer-events: none; }
+        .fine-tick { stroke: var(--card-background-color, #fff); stroke-width: 2.5; pointer-events: none; }
         .on { fill: none; stroke: var(--ht-color); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
         .knob { fill: var(--card-background-color, #fff); stroke: var(--ht-color); stroke-width: 4; pointer-events: none; }
         .start-knob circle { fill: var(--card-background-color, #fff); stroke: var(--ht-color); stroke-width: 2.5; }
@@ -348,7 +432,7 @@ class HourlyTimerCard extends HTMLElement {
         .unavailable .on, .unavailable .knob, .unavailable .start-knob, .unavailable .wait { display: none; }
 
         .center {
-          position: absolute; inset: 24% 20% 18%; display: flex; flex-direction: column;
+          position: absolute; inset: 19% 20% 23%; display: flex; flex-direction: column;
           align-items: center; justify-content: center; text-align: center; pointer-events: none; gap: 2px;
         }
         .cap { font-size: clamp(11px, 5cqw, 13px); color: var(--secondary-text-color); min-height: 1.2em; }
@@ -375,13 +459,21 @@ class HourlyTimerCard extends HTMLElement {
         .stop:hover { background: rgba(127, 127, 127, 0.28); }
         .stop svg { width: 16px; height: 16px; }
 
-        .controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: -6px; }
+        /* −/+ sit in the ring's opening at the bottom. */
+        .controls {
+          position: absolute; left: 0; right: 0; bottom: 15%; display: flex; align-items: center; justify-content: center;
+          gap: clamp(6px, 3.5cqw, 12px); pointer-events: none;
+        }
+        .controls .stop { margin-top: 0; width: clamp(28px, 11cqw, 36px); height: clamp(28px, 11cqw, 36px); }
+        /* The time sits a little higher so it clears the row below. */
+        .with-controls .center { inset: 17% 20% 30%; }
         .round {
-          width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 1; padding: 0;
+          width: clamp(28px, 11cqw, 36px); height: clamp(28px, 11cqw, 36px); border-radius: 50%; cursor: pointer;
+          font-size: clamp(18px, 7cqw, 22px); line-height: 1; padding: 0; pointer-events: auto;
           border: 1px solid var(--divider-color); background: none; color: var(--primary-text-color);
         }
         .round:hover { border-color: var(--ht-color); }
-        .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
         .chips:empty { display: none; }
         .chip {
           border: 1px solid var(--divider-color); border-radius: 16px; padding: 6px 12px; cursor: pointer;
@@ -394,7 +486,7 @@ class HourlyTimerCard extends HTMLElement {
         [hidden] { display: none !important; }
       </style>
 
-      <ha-card class="${this._compact ? "compact" : ""}">
+      <ha-card class="${this._compact ? "compact" : ""} ${this.config.show_controls ? "with-controls" : "no-controls"}">
         <div class="title">${title}</div>
         <div class="dial-wrap">
           <svg class="dial" id="dial" viewBox="-14 -14 228 228" role="slider" tabindex="0"
@@ -405,6 +497,7 @@ class HourlyTimerCard extends HTMLElement {
             <path class="track" d="${arcPath(0, 1, R)}"></path>
             <path class="wait" id="wait" d=""></path>
             <path class="on" id="on" d=""></path>
+            <line class="fine-tick" id="fine-tick" hidden></line>
             <circle class="knob" id="knob" r="11"></circle>
             <g class="start-knob" id="start-knob">
               <circle r="9"></circle>
@@ -416,14 +509,13 @@ class HourlyTimerCard extends HTMLElement {
             <div class="cap" id="cap"></div>
             <div class="big" id="big">Off</div>
             <div class="sub" id="sub-wrap"><span class="sub-prefix" id="sub-prefix"></span><span id="sub"></span></div>
-            <button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
-              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
-            </button>
+            ${this.config.show_controls ? "" : stopButton}
           </div>
-        </div>
-        <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
-          <button class="round" id="minus" type="button" aria-label="Less time">−</button>
-          <button class="round" id="plus" type="button" aria-label="More time">+</button>
+          <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
+            <button class="round" id="minus" type="button" aria-label="Less time">−</button>
+            ${this.config.show_controls ? stopButton : ""}
+            <button class="round" id="plus" type="button" aria-label="More time">+</button>
+          </div>
         </div>
         <div class="chips" id="chips">${presets}</div>
         <div class="hint" id="hint" ${this.config.show_hints ? "" : "hidden"}></div>
@@ -436,6 +528,7 @@ class HourlyTimerCard extends HTMLElement {
       wait: $("wait"),
       on: $("on"),
       knob: $("knob"),
+      fineTick: $("fine-tick"),
       startKnob: $("start-knob"),
       cap: $("cap"),
       big: $("big"),
@@ -553,7 +646,7 @@ class HourlyTimerCard extends HTMLElement {
     const angle = (Math.atan2(y - CY, x - CX) * 180) / Math.PI;
     let rel = (angle - START_ANGLE + 720) % 360;
     if (rel > SWEEP) rel = rel > SWEEP + (360 - SWEEP) / 2 ? 0 : SWEEP; // pointer is in the gap
-    return (rel / SWEEP) * this._max;
+    return this._fromFrac(rel / SWEEP);
   }
 
   _applyPointer(e, moving) {
@@ -566,10 +659,14 @@ class HourlyTimerCard extends HTMLElement {
     if (drag.handle === "end") {
       const current = startOff + drag.duration;
       // Don't jump from one end of the ring to the other while dragging.
-      if (moving && Math.abs(at - current) > max / 2) at = current > max / 2 ? max : 0;
-      drag.duration = this._snapDuration(Math.max(0, at - startOff));
+      if (moving && Math.abs(this._toFrac(at) - this._toFrac(current)) > 0.5) {
+        at = this._toFrac(current) > 0.5 ? max : 0;
+      }
+      drag.duration = this._snapDuration(Math.max(0, at - startOff), at);
     } else {
-      if (moving && Math.abs(at - startOff) > max / 2) at = startOff > max / 2 ? max : 0;
+      if (moving && Math.abs(this._toFrac(at) - this._toFrac(startOff)) > 0.5) {
+        at = this._toFrac(startOff) > 0.5 ? max : 0;
+      }
       // Move the whole block; keep its end on the ring.
       const latest = Math.max(0, max - drag.duration);
       const off = Math.min(at, latest);
@@ -585,7 +682,7 @@ class HourlyTimerCard extends HTMLElement {
     const v = this._view();
     const startAt = v.mode === "scheduled" ? v.startAt : null;
     const base = ["idle", "off", "manual"].includes(v.mode) ? 0 : (v.endAt - Math.max(v.startAt, Date.now())) / MINUTE;
-    const step = this._step;
+    const step = this._stepAt(base, direction);
     const snapped = direction > 0 ? Math.floor(base / step) * step : Math.ceil(base / step) * step;
     const startOff = startAt ? (startAt - Date.now()) / MINUTE : 0;
     const duration = Math.min(Math.max(0, snapped + direction * step), Math.max(0, this._max - startOff));
@@ -657,6 +754,10 @@ class HourlyTimerCard extends HTMLElement {
   // ---------------------------------------------------------------------------
 
   _update() {
+    if (this._isTile) {
+      this._updateTile();
+      return;
+    }
     const els = this._els;
     const stateObj = this._stateObj;
     const dial = els.dial;
@@ -695,10 +796,18 @@ class HourlyTimerCard extends HTMLElement {
     const active = v.mode === "running" || v.mode === "scheduled";
     const startOff = active ? Math.max(0, (v.startAt - now) / MINUTE) : 0;
     const endOff = active ? Math.max(startOff, (v.endAt - now) / MINUTE) : 0;
-    const fs = Math.min(1, startOff / max);
-    const fe = manual ? 1 : Math.min(1, endOff / max);
+    const fs = this._toFrac(startOff);
+    const fe = manual ? 1 : this._toFrac(endOff);
     dial.classList.toggle("manual", manual);
 
+    // Progressive scale: a notch in the track where the one-minute steps end.
+    els.fineTick.toggleAttribute("hidden", !this._progressive); // SVG has no .hidden property
+    if (this._progressive) {
+      const a = START_ANGLE + SWEEP * this._toFrac(this._fine);
+      const [x1, y1] = polar(a, R - 8);
+      const [x2, y2] = polar(a, R + 8);
+      Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => els.fineTick.setAttribute(k, String(v)));
+    }
     els.wait.setAttribute("d", arcPath(0, fs, R));
     els.on.setAttribute("d", arcPath(fs, fe, R));
     const [kx, ky] = polar(START_ANGLE + SWEEP * fe, R);
@@ -789,6 +898,193 @@ class HourlyTimerCard extends HTMLElement {
       els.sub.textContent = "Drag the ring to start";
       if (this._canSchedule) els.hint.textContent = "Drag ▶ on the outer ring to start later";
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Tile layout
+  // ---------------------------------------------------------------------------
+
+  get _tileName() {
+    if (this.config.title) return this.config.title;
+    const target = this._targetId && this._hass.states[this._targetId];
+    const s = target || this._stateObj;
+    return (s && s.attributes.friendly_name) || this.config.entity;
+  }
+
+  get _tileIcon() {
+    if (this.config.icon) return this.config.icon;
+    const target = this._targetId && this._hass.states[this._targetId];
+    return (target && target.attributes.icon) || "mdi:timer-outline";
+  }
+
+  _renderTile() {
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host { --ht-color: var(--hourly-timer-color, var(--state-active-color, var(--primary-color))); }
+        ha-card {
+          height: 100%; min-height: 56px; box-sizing: border-box; padding: 0 12px 0 10px;
+          display: flex; align-items: center; gap: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+        }
+        ha-card:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+        .ring { position: relative; width: 40px; height: 40px; flex: none; }
+        .ring > svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+        .bg { fill: rgba(127, 127, 127, 0.12); transition: fill 0.3s; }
+        .prog { fill: none; stroke: var(--ht-color); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dashoffset 0.4s; }
+        ha-icon {
+          position: absolute; inset: 0; margin: auto; width: 22px; height: 22px; --mdc-icon-size: 22px;
+          color: var(--secondary-text-color); display: flex;
+        }
+        .active .bg { fill: color-mix(in srgb, var(--ht-color) 18%, transparent); }
+        .active ha-icon { color: var(--ht-color); }
+        .scheduled .prog { opacity: 0.45; }
+        .manual .prog { animation: ht-pulse 2.4s ease-in-out infinite; }
+        @keyframes ht-pulse { 50% { opacity: 0.35; } }
+        @media (prefers-reduced-motion: reduce) { .manual .prog { animation: none; } }
+        .info { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+        .name, .state { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .name { font-size: 14px; font-weight: 500; line-height: 20px; color: var(--primary-text-color); }
+        .state { font-size: 12px; line-height: 16px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+        .state.warn { color: var(--warning-color, #ffa600); }
+
+        dialog {
+          border: none; padding: 0; width: min(92vw, 400px); box-sizing: border-box;
+          border-radius: var(--ha-dialog-border-radius, 24px);
+          background: var(--ha-dialog-surface-background, var(--card-background-color, #fff));
+          color: var(--primary-text-color); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+        }
+        dialog::backdrop { background: rgba(0, 0, 0, 0.5); }
+        .dlg-head { display: flex; align-items: center; gap: 8px; padding: 14px 10px 0 22px; }
+        .dlg-title { flex: 1; font-size: 18px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .close {
+          width: 40px; height: 40px; border-radius: 50%; border: none; background: none; cursor: pointer;
+          color: var(--secondary-text-color); display: flex; align-items: center; justify-content: center; padding: 0;
+        }
+        .close:hover { background: rgba(127, 127, 127, 0.15); }
+        .close svg { width: 22px; height: 22px; }
+        .dlg-body {
+          padding: 0 10px 14px;
+          --ha-card-border-width: 0; --ha-card-box-shadow: none; --ha-card-background: transparent;
+        }
+      </style>
+      <ha-card id="tile" tabindex="0" role="button" aria-haspopup="dialog">
+        <div class="ring">
+          <svg viewBox="0 0 40 40">
+            <circle class="bg" cx="20" cy="20" r="20"></circle>
+            <circle class="prog" id="prog" cx="20" cy="20" r="18.75" pathLength="100"
+              stroke-dasharray="100 100" stroke-dashoffset="100"></circle>
+          </svg>
+          <ha-icon id="icon"></ha-icon>
+        </div>
+        <div class="info">
+          <div class="name" id="name"></div>
+          <div class="state" id="state"></div>
+        </div>
+      </ha-card>
+      <dialog id="dialog">
+        <div class="dlg-head">
+          <span class="dlg-title" id="dlg-title"></span>
+          <button class="close" id="close" type="button" aria-label="Close">
+            <svg viewBox="0 0 24 24"><path fill="currentColor" d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"></path></svg>
+          </button>
+        </div>
+        <div class="dlg-body" id="dlg-body"></div>
+      </dialog>
+    `;
+    const $ = (id) => this.shadowRoot.getElementById(id);
+    this._els = {
+      tile: $("tile"), prog: $("prog"), icon: $("icon"), name: $("name"), state: $("state"),
+      dialog: $("dialog"), dlgTitle: $("dlg-title"), dlgBody: $("dlg-body"), close: $("close"),
+    };
+    const els = this._els;
+    els.tile.addEventListener("click", () => this._openPopup());
+    els.tile.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        this._openPopup();
+      }
+    });
+    els.close.addEventListener("click", () => els.dialog.close());
+    // A click on the backdrop lands on the dialog element itself.
+    els.dialog.addEventListener("click", (e) => {
+      if (e.target === els.dialog) els.dialog.close();
+    });
+    els.dialog.addEventListener("close", () => {
+      els.dlgBody.innerHTML = "";
+      this._popupCard = null;
+    });
+  }
+
+  /** Open the full dial in a popup, with the same options as this tile. */
+  _openPopup() {
+    const els = this._els;
+    if (els.dialog.open) return;
+    const { title, layout, ...rest } = this.config;
+    const raw = this._rawConfig || {};
+    const card = document.createElement("hourly-timer-card");
+    // The popup has room for the extras: show −/+ and the quick times
+    // unless the card's config turns them off.
+    card.setConfig({
+      ...rest,
+      layout: "dial",
+      show_controls: raw.show_controls ?? true,
+      show_presets: raw.show_presets ?? true,
+    });
+    els.dlgTitle.textContent = this._tileName;
+    els.dlgBody.appendChild(card);
+    this._popupCard = card;
+    card.hass = this._hass;
+    els.dialog.showModal();
+  }
+
+  _updateTile() {
+    const els = this._els;
+    const tile = els.tile;
+    els.name.textContent = this._tileName;
+    els.icon.setAttribute("icon", this._tileIcon);
+    els.state.classList.remove("warn");
+    tile.classList.remove("active", "scheduled", "manual");
+    const setProg = (f) => {
+      const clamped = Math.min(1, Math.max(0, f));
+      els.prog.setAttribute("stroke-dashoffset", String(100 - clamped * 100));
+      // A zero-length stroke still draws a dot with round caps.
+      els.prog.style.visibility = clamped > 0 ? "" : "hidden";
+    };
+
+    if (!this._available) {
+      this._stopTick();
+      setProg(0);
+      els.state.textContent = this._stateObj ? "Unavailable" : `Entity not found: ${this.config.entity}`;
+      return;
+    }
+    const now = Date.now();
+    const t = this._entityTimer();
+    if (t.mode === "running") {
+      tile.classList.add("active");
+      setProg(this._toFrac((t.endAt - now) / MINUTE));
+      if (t.approximate) {
+        this._stopTick();
+        els.state.textContent = `On · ${formatMinutes(Number(this._stateObj.state) || 0)}`;
+      } else {
+        els.state.textContent = `${formatCountdown((t.endAt - now) / 1000)} · off at ${formatClock(t.endAt)}`;
+        this._startTick();
+      }
+    } else if (t.mode === "scheduled") {
+      this._stopTick();
+      tile.classList.add("scheduled");
+      setProg(this._toFrac((t.endAt - t.startAt) / MINUTE));
+      els.state.textContent = `Starts ${formatClock(t.startAt)} · ${formatMinutes((t.endAt - t.startAt) / MINUTE)}`;
+    } else if (this._targetOn()) {
+      this._stopTick();
+      tile.classList.add("active", "manual");
+      setProg(1);
+      els.state.textContent = "On · No timer";
+      els.state.classList.add("warn");
+    } else {
+      this._stopTick();
+      setProg(0);
+      els.state.textContent = "Off";
+    }
+    tile.setAttribute("aria-label", `${this._tileName}: ${els.state.textContent}`);
   }
 
   _startTick() {
