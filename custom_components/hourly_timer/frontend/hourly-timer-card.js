@@ -346,6 +346,11 @@ class HourlyTimerCard extends HTMLElement {
       .map((p) => `<button class="chip" type="button" data-minutes="${Number(p)}">${formatMinutes(p)}</button>`)
       .join("");
 
+    // With −/+ shown, the stop button sits between them in the ring's opening.
+    const stopButton = `<button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
+      <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
+    </button>`;
+
     this.shadowRoot.innerHTML = `
       <style>
         :host { --ht-color: var(--hourly-timer-color, var(--state-active-color, var(--primary-color))); }
@@ -353,10 +358,9 @@ class HourlyTimerCard extends HTMLElement {
         ha-card.compact { padding: 10px 12px 12px; justify-content: center; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); margin-bottom: 4px; }
         .compact .title { font-size: 14px; text-align: center; margin-bottom: 0; }
-        /* The ring's opening leaves empty space at the bottom: let the card end there. */
-        .no-controls .dial-wrap { margin-bottom: -11%; }
         .title:empty { display: none; }
-        .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto; container-type: inline-size; }
+        /* The ring's opening leaves empty space at the bottom: let the card end there (11% of the dial). */
+        .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto calc(min(100%, 320px) * -0.11); container-type: inline-size; }
         .dial { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
         .dial:focus { outline: none; }
         .dial:focus-visible .track { stroke: var(--primary-color); }
@@ -404,11 +408,14 @@ class HourlyTimerCard extends HTMLElement {
 
         /* −/+ sit in the ring's opening at the bottom. */
         .controls {
-          position: absolute; left: 0; right: 0; bottom: 4%; display: flex; align-items: center; justify-content: center;
-          gap: clamp(10px, 6cqw, 18px); pointer-events: none;
+          position: absolute; left: 0; right: 0; bottom: 15%; display: flex; align-items: center; justify-content: center;
+          gap: clamp(6px, 3.5cqw, 12px); pointer-events: none;
         }
+        .controls .stop { margin-top: 0; width: clamp(28px, 11cqw, 36px); height: clamp(28px, 11cqw, 36px); }
+        /* The time sits a little higher so it clears the row below. */
+        .with-controls .center { inset: 17% 20% 30%; }
         .round {
-          width: clamp(30px, 12cqw, 40px); height: clamp(30px, 12cqw, 40px); border-radius: 50%; cursor: pointer;
+          width: clamp(28px, 11cqw, 36px); height: clamp(28px, 11cqw, 36px); border-radius: 50%; cursor: pointer;
           font-size: clamp(18px, 7cqw, 22px); line-height: 1; padding: 0; pointer-events: auto;
           border: 1px solid var(--divider-color); background: none; color: var(--primary-text-color);
         }
@@ -426,7 +433,7 @@ class HourlyTimerCard extends HTMLElement {
         [hidden] { display: none !important; }
       </style>
 
-      <ha-card class="${this._compact ? "compact" : ""} ${this.config.show_controls ? "" : "no-controls"}">
+      <ha-card class="${this._compact ? "compact" : ""} ${this.config.show_controls ? "with-controls" : "no-controls"}">
         <div class="title">${title}</div>
         <div class="dial-wrap">
           <svg class="dial" id="dial" viewBox="-14 -14 228 228" role="slider" tabindex="0"
@@ -448,12 +455,11 @@ class HourlyTimerCard extends HTMLElement {
             <div class="cap" id="cap"></div>
             <div class="big" id="big">Off</div>
             <div class="sub" id="sub-wrap"><span class="sub-prefix" id="sub-prefix"></span><span id="sub"></span></div>
-            <button class="stop" id="stop" type="button" title="Turn off" aria-label="Turn off" hidden>
-              <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
-            </button>
+            ${this.config.show_controls ? "" : stopButton}
           </div>
           <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
             <button class="round" id="minus" type="button" aria-label="Less time">−</button>
+            ${this.config.show_controls ? stopButton : ""}
             <button class="round" id="plus" type="button" aria-label="More time">+</button>
           </div>
         </div>
