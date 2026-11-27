@@ -8,12 +8,16 @@
  * timer (can be disabled with `center_tap: none`). While running or scheduled, the ring shows the remaining
  * time with a live countdown.
  *
+ * The card is compact by default. `show_controls` adds −/+ buttons,
+ * `show_presets` adds quick time chips and `show_hints` adds a help line.
+ *
  * Works with the integration's `number.*_timer_duration` entity (recommended)
  * or with any `input_number` (without scheduling or countdown).
  */
 
 (() => {
-const CARD_VERSION = "3.3.0";
+const CARD_VERSION = "3.4.0";
+const DEFAULT_PRESETS = [15, 30, 60];
 
 // Geometry (SVG user units). The ring is a 270° arc with the gap at the bottom.
 const CX = 100;
@@ -95,7 +99,19 @@ class HourlyTimerCard extends HTMLElement {
     if (domain !== "number" && domain !== "input_number") {
       throw new Error("The entity must be a number or input_number entity");
     }
-    this.config = { max_minutes: 240, dial_step: 5, presets: [15, 30, 60], center_tap: "toggle", ...config };
+    // A presets list the user wrote themselves means they want the chips
+    // (cards configured before the compact default keep them).
+    const userPresets = Array.isArray(config.presets) && config.presets.length > 0;
+    this.config = {
+      max_minutes: 240,
+      dial_step: 5,
+      center_tap: "toggle",
+      show_controls: false,
+      show_presets: userPresets,
+      show_hints: false,
+      ...config,
+      presets: Array.isArray(config.presets) ? config.presets : DEFAULT_PRESETS,
+    };
     if (this.shadowRoot.firstChild) {
       this.shadowRoot.innerHTML = "";
       this._els = null;
@@ -118,12 +134,56 @@ class HourlyTimerCard extends HTMLElement {
     this._stopTick();
   }
 
+  static getConfigForm() {
+    return {
+      schema: [
+        { name: "entity", required: true, selector: { entity: { domain: ["number", "input_number"] } } },
+        { name: "title", selector: { text: {} } },
+        {
+          type: "grid",
+          name: "",
+          schema: [
+            { name: "max_minutes", selector: { number: { min: 10, max: 1440, step: 5, mode: "box", unit_of_measurement: "min" } } },
+            { name: "dial_step", selector: { number: { min: 1, max: 60, step: 1, mode: "box", unit_of_measurement: "min" } } },
+          ],
+        },
+        {
+          name: "center_tap",
+          selector: { select: { mode: "dropdown", options: [
+            { value: "toggle", label: "Turn on/off without a timer" },
+            { value: "none", label: "Do nothing" },
+          ] } },
+        },
+        { name: "show_controls", selector: { boolean: {} } },
+        { name: "show_presets", selector: { boolean: {} } },
+        { name: "show_hints", selector: { boolean: {} } },
+      ],
+      computeLabel: (s) => ({
+        entity: "Timer entity",
+        title: "Title",
+        max_minutes: "Ring length",
+        dial_step: "Step",
+        center_tap: "Tapping the center",
+        show_controls: "Show −/+ buttons",
+        show_presets: "Show quick times",
+        show_hints: "Show hints",
+      })[s.name],
+      computeHelper: (s) => (s.name === "show_presets" ? "Times come from the presets option (default 15, 30, 60 min)" : undefined),
+    };
+  }
+
+  get _compact() {
+    return !this.config.show_controls && !this.config.show_presets && !this.config.show_hints;
+  }
+
   getCardSize() {
-    return 6;
+    return this._compact ? 4 : 6;
   }
 
   getGridOptions() {
-    return { columns: 12, rows: "auto", min_columns: 6 };
+    return this._compact
+      ? { columns: 6, rows: "auto", min_columns: 4 }
+      : { columns: 12, rows: "auto", min_columns: 6 };
   }
 
   // ---------------------------------------------------------------------------
@@ -255,7 +315,7 @@ class HourlyTimerCard extends HTMLElement {
 
   _render() {
     const title = this.config.title ? escapeHtml(this.config.title) : "";
-    const presets = (this.config.presets || [])
+    const presets = (this.config.show_presets ? this.config.presets : [])
       .map((p) => `<button class="chip" type="button" data-minutes="${Number(p)}">${formatMinutes(p)}</button>`)
       .join("");
 
@@ -263,7 +323,11 @@ class HourlyTimerCard extends HTMLElement {
       <style>
         :host { --ht-color: var(--hourly-timer-color, var(--state-active-color, var(--primary-color))); }
         ha-card { height: 100%; box-sizing: border-box; padding: 12px 16px 16px; display: flex; flex-direction: column; }
+        ha-card.compact { padding: 10px 12px 12px; justify-content: center; }
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); margin-bottom: 4px; }
+        .compact .title { font-size: 14px; text-align: center; margin-bottom: 0; }
+        /* The ring's opening leaves empty space at the bottom: let the card end there. */
+        .compact .dial-wrap { margin-bottom: -11%; }
         .title:empty { display: none; }
         .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto; container-type: inline-size; }
         .dial { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -290,7 +354,7 @@ class HourlyTimerCard extends HTMLElement {
         .cap { font-size: clamp(11px, 5cqw, 13px); color: var(--secondary-text-color); min-height: 1.2em; }
         .big { font-size: clamp(24px, 12cqw, 42px); font-weight: 500; line-height: 1.1; color: var(--primary-text-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
         .sub { font-size: clamp(11px, 5cqw, 14px); color: var(--secondary-text-color); min-height: 1.3em; white-space: nowrap; }
-        @container (max-width: 200px) { .sub-prefix { display: none; } }
+        @container (max-width: 200px) { .sub-prefix { display: none; } .sub { font-size: 10px; } .cap { display: none; } }
         .center-tap {
           position: absolute; left: 25.5%; top: 25.5%; width: 49%; aspect-ratio: 1; border-radius: 50%;
           border: none; background: transparent; cursor: pointer; padding: 0; -webkit-tap-highlight-color: transparent;
@@ -303,7 +367,7 @@ class HourlyTimerCard extends HTMLElement {
         .manual .knob, .manual .start-knob, .manual .outer-track, .manual .wait { display: none; }
         .sub.warn { color: var(--warning-color, #ffa600); font-weight: 500; }
         .stop {
-          pointer-events: auto; margin-top: 6px; width: clamp(32px, 14cqw, 42px); height: clamp(32px, 14cqw, 42px); flex-shrink: 0;
+          pointer-events: auto; margin-top: clamp(2px, 2cqw, 6px); width: clamp(28px, 14cqw, 42px); height: clamp(28px, 14cqw, 42px); flex-shrink: 0;
           border-radius: 50%; border: none; cursor: pointer; padding: 0;
           background: rgba(127, 127, 127, 0.15); color: var(--primary-text-color);
           display: flex; align-items: center; justify-content: center;
@@ -330,7 +394,7 @@ class HourlyTimerCard extends HTMLElement {
         [hidden] { display: none !important; }
       </style>
 
-      <ha-card>
+      <ha-card class="${this._compact ? "compact" : ""}">
         <div class="title">${title}</div>
         <div class="dial-wrap">
           <svg class="dial" id="dial" viewBox="-14 -14 228 228" role="slider" tabindex="0"
@@ -357,12 +421,12 @@ class HourlyTimerCard extends HTMLElement {
             </button>
           </div>
         </div>
-        <div class="controls">
+        <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
           <button class="round" id="minus" type="button" aria-label="Less time">−</button>
           <button class="round" id="plus" type="button" aria-label="More time">+</button>
         </div>
         <div class="chips" id="chips">${presets}</div>
-        <div class="hint" id="hint"></div>
+        <div class="hint" id="hint" ${this.config.show_hints ? "" : "hidden"}></div>
       </ha-card>
     `;
 
