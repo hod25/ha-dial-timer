@@ -65,12 +65,16 @@ The card is a circular slider. The ring is a timeline that starts now.
 - **Start later:** drag the **▶** handle on the outer ring forward. The start snaps to round clock times (14:00, 14:05…). Drag the ring to change how long it stays on.
 - While a timer runs or waits, the center shows a live countdown and a stop button that turns it off or cancels the schedule.
 
+For a smaller card, use `layout: tile`. It fits in one row, like the tile card, and opens the dial when you tap it.
+
 The card is compact by default: just the dial. Turn on `show_controls` for **−/+** buttons and `show_presets` for quick times, from the visual editor or in YAML.
 
 | Option | Default | Description |
 | --- | --- | --- |
 | `entity` | *required* | The timer's `number` entity. An `input_number` also works, but without the countdown. |
 | `title` | none | Card title. |
+| `layout` | `dial` | `dial`: the full dial. `tile`: a one-row tile with a small progress ring, the name and a countdown. Tapping the tile opens the dial in a popup. |
+| `icon` | the device's icon | Icon for the tile. |
 | `max_minutes` | `240` | Time at the end of the ring. It can't be higher than the entity's maximum (1440). |
 | `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
 | `show_controls` | `false` | Show **−/+** buttons under the dial. |
