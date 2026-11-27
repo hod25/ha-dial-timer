@@ -354,7 +354,7 @@ class HourlyTimerCard extends HTMLElement {
         .title { font-size: 16px; font-weight: 500; color: var(--primary-text-color); margin-bottom: 4px; }
         .compact .title { font-size: 14px; text-align: center; margin-bottom: 0; }
         /* The ring's opening leaves empty space at the bottom: let the card end there. */
-        .compact .dial-wrap { margin-bottom: -11%; }
+        .no-controls .dial-wrap { margin-bottom: -11%; }
         .title:empty { display: none; }
         .dial-wrap { position: relative; width: 100%; max-width: 320px; margin: 0 auto; container-type: inline-size; }
         .dial { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
@@ -402,13 +402,18 @@ class HourlyTimerCard extends HTMLElement {
         .stop:hover { background: rgba(127, 127, 127, 0.28); }
         .stop svg { width: 16px; height: 16px; }
 
-        .controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: -6px; }
+        /* −/+ sit in the ring's opening at the bottom. */
+        .controls {
+          position: absolute; left: 0; right: 0; bottom: 4%; display: flex; align-items: center; justify-content: center;
+          gap: clamp(10px, 6cqw, 18px); pointer-events: none;
+        }
         .round {
-          width: 44px; height: 44px; border-radius: 50%; cursor: pointer; font-size: 24px; line-height: 1; padding: 0;
+          width: clamp(30px, 12cqw, 40px); height: clamp(30px, 12cqw, 40px); border-radius: 50%; cursor: pointer;
+          font-size: clamp(18px, 7cqw, 22px); line-height: 1; padding: 0; pointer-events: auto;
           border: 1px solid var(--divider-color); background: none; color: var(--primary-text-color);
         }
         .round:hover { border-color: var(--ht-color); }
-        .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 12px; }
+        .chips { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 6px; }
         .chips:empty { display: none; }
         .chip {
           border: 1px solid var(--divider-color); border-radius: 16px; padding: 6px 12px; cursor: pointer;
@@ -421,7 +426,7 @@ class HourlyTimerCard extends HTMLElement {
         [hidden] { display: none !important; }
       </style>
 
-      <ha-card class="${this._compact ? "compact" : ""}">
+      <ha-card class="${this._compact ? "compact" : ""} ${this.config.show_controls ? "" : "no-controls"}">
         <div class="title">${title}</div>
         <div class="dial-wrap">
           <svg class="dial" id="dial" viewBox="-14 -14 228 228" role="slider" tabindex="0"
@@ -447,10 +452,10 @@ class HourlyTimerCard extends HTMLElement {
               <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2" fill="currentColor"></rect></svg>
             </button>
           </div>
-        </div>
-        <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
-          <button class="round" id="minus" type="button" aria-label="Less time">−</button>
-          <button class="round" id="plus" type="button" aria-label="More time">+</button>
+          <div class="controls" ${this.config.show_controls ? "" : "hidden"}>
+            <button class="round" id="minus" type="button" aria-label="Less time">−</button>
+            <button class="round" id="plus" type="button" aria-label="More time">+</button>
+          </div>
         </div>
         <div class="chips" id="chips">${presets}</div>
         <div class="hint" id="hint" ${this.config.show_hints ? "" : "hidden"}></div>
