@@ -63,7 +63,9 @@ The card is a circular slider. The ring is a timeline that starts now.
 - **On without a timer:** tap the center. The card shows **On · No timer** with a pulsing ring, and tapping again turns it off. It also shows this when the device was turned on some other way, for example from a wall switch. To add a timer, drag the ring.
 - **Start now:** drag the ring to choose how long, then let go.
 - **Start later:** drag the **▶** handle on the outer ring forward. The start snaps to round clock times (14:00, 14:05…). Drag the ring to change how long it stays on.
-- **−/+** and the presets change how long. While a timer runs or waits, the center shows a live countdown and a stop button that turns it off or cancels the schedule.
+- While a timer runs or waits, the center shows a live countdown and a stop button that turns it off or cancels the schedule.
+
+The card is compact by default: just the dial. Turn on `show_controls` for **−/+** buttons and `show_presets` for quick times, from the visual editor or in YAML.
 
 | Option | Default | Description |
 | --- | --- | --- |
@@ -71,7 +73,10 @@ The card is a circular slider. The ring is a timeline that starts now.
 | `title` | none | Card title. |
 | `max_minutes` | `240` | Time at the end of the ring. It can't be higher than the entity's maximum (1440). |
 | `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
-| `presets` | `[15, 30, 60]` | Quick buttons, in minutes. Use `[]` to hide them. |
+| `show_controls` | `false` | Show **−/+** buttons under the dial. |
+| `show_presets` | `false` | Show quick-time buttons under the dial. It turns on by itself when you set `presets`. |
+| `presets` | `[15, 30, 60]` | Minutes for the quick-time buttons. |
+| `show_hints` | `false` | Show a help line under the dial. |
 | `center_tap` | `toggle` | `toggle`: tapping the center turns the device on or off without a timer. `none`: the center does nothing. Use `none` for devices that must never stay on without a timer, like a water heater. |
 
 To change the ring color, set `--hourly-timer-color` with [card-mod](https://github.com/thomasloven/lovelace-card-mod) or a theme.
