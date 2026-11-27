@@ -8,6 +8,9 @@
  * timer (can be disabled with `center_tap: none`). While running or scheduled, the ring shows the remaining
  * time with a live countdown.
  *
+ * `dial_scale: progressive` moves the first `fine_minutes` (15) one minute at a
+ * time and the rest by `dial_step`, each step taking the same space on the ring.
+ *
  * The card is compact by default. `show_controls` adds −/+ buttons,
  * `show_presets` adds quick time chips and `show_hints` adds a help line.
  *
@@ -167,6 +170,13 @@ class HourlyTimerCard extends HTMLElement {
           ],
         },
         {
+          name: "dial_scale",
+          selector: { select: { mode: "dropdown", options: [
+            { value: "linear", label: "Even steps" },
+            { value: "progressive", label: "1-minute steps first, then the step above" },
+          ] } },
+        },
+        {
           name: "center_tap",
           selector: { select: { mode: "dropdown", options: [
             { value: "toggle", label: "Turn on/off without a timer" },
@@ -185,6 +195,7 @@ class HourlyTimerCard extends HTMLElement {
         max_minutes: "Ring length",
         dial_step: "Step",
         center_tap: "Tapping the center",
+        dial_scale: "Ring scale",
         show_controls: "Show −/+ buttons",
         show_presets: "Show quick times",
         show_hints: "Show hints",
@@ -326,14 +337,55 @@ class HourlyTimerCard extends HTMLElement {
 
   /** Round a timestamp to the step on the clock (e.g. 14:00, 14:05), never into the past. */
   _snapStart(ms) {
-    const stepMs = this._step * MINUTE;
     const now = Date.now();
+    const stepMs = this._stepAt((ms - now) / MINUTE) * MINUTE;
     const snapped = Math.round(ms / stepMs) * stepMs;
     return snapped - now < stepMs / 2 ? null : snapped;
   }
 
-  _snapDuration(minutes) {
-    return Math.max(0, Math.round(minutes / this._step) * this._step);
+  _snapDuration(minutes, at = minutes) {
+    const step = this._stepAt(at);
+    return Math.max(0, Math.round(minutes / step) * step);
+  }
+
+  /**
+   * `dial_scale: progressive`: the first `fine_minutes` move one minute at a
+   * time, the rest by `dial_step`. Every step takes the same space on the ring.
+   */
+  get _progressive() {
+    return this.config.dial_scale === "progressive" && this._step > 1 && this._max > this._fine;
+  }
+
+  get _fine() {
+    return Math.max(1, Number(this.config.fine_minutes) || 15);
+  }
+
+  /** The step at a point on the ring; `dir` says which way a −/+ press goes. */
+  _stepAt(minutes, dir = 0) {
+    if (!this._progressive) return this._step;
+    const fine = this._fine;
+    if (dir < 0) return minutes <= fine ? 1 : this._step;
+    return minutes < fine ? 1 : this._step;
+  }
+
+  /** Minutes from now → fraction of the ring (0..1). */
+  _toFrac(minutes) {
+    const max = this._max;
+    const m = Math.min(max, Math.max(0, minutes));
+    if (!this._progressive) return m / max;
+    const fine = this._fine;
+    const steps = (x) => Math.min(x, fine) + Math.max(0, x - fine) / this._step;
+    return steps(m) / steps(max);
+  }
+
+  /** Fraction of the ring (0..1) → minutes from now. */
+  _fromFrac(frac) {
+    const max = this._max;
+    if (!this._progressive) return frac * max;
+    const fine = this._fine;
+    const total = fine + (max - fine) / this._step;
+    const st = Math.min(1, Math.max(0, frac)) * total;
+    return st <= fine ? st : fine + (st - fine) * this._step;
   }
 
   // ---------------------------------------------------------------------------
@@ -368,6 +420,7 @@ class HourlyTimerCard extends HTMLElement {
         .track { fill: none; stroke: var(--divider-color, rgba(127,127,127,0.3)); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
         .outer-track { fill: none; stroke: var(--divider-color, rgba(127,127,127,0.3)); stroke-width: 2; stroke-dasharray: 1 5; stroke-linecap: round; pointer-events: none; }
         .wait { fill: none; stroke: var(--ht-color); stroke-width: 3; stroke-dasharray: 2 6; stroke-linecap: round; opacity: 0.7; pointer-events: none; }
+        .fine-tick { stroke: var(--card-background-color, #fff); stroke-width: 2.5; pointer-events: none; }
         .on { fill: none; stroke: var(--ht-color); stroke-width: 14; stroke-linecap: round; pointer-events: none; }
         .knob { fill: var(--card-background-color, #fff); stroke: var(--ht-color); stroke-width: 4; pointer-events: none; }
         .start-knob circle { fill: var(--card-background-color, #fff); stroke: var(--ht-color); stroke-width: 2.5; }
@@ -444,6 +497,7 @@ class HourlyTimerCard extends HTMLElement {
             <path class="track" d="${arcPath(0, 1, R)}"></path>
             <path class="wait" id="wait" d=""></path>
             <path class="on" id="on" d=""></path>
+            <line class="fine-tick" id="fine-tick" hidden></line>
             <circle class="knob" id="knob" r="11"></circle>
             <g class="start-knob" id="start-knob">
               <circle r="9"></circle>
@@ -474,6 +528,7 @@ class HourlyTimerCard extends HTMLElement {
       wait: $("wait"),
       on: $("on"),
       knob: $("knob"),
+      fineTick: $("fine-tick"),
       startKnob: $("start-knob"),
       cap: $("cap"),
       big: $("big"),
@@ -591,7 +646,7 @@ class HourlyTimerCard extends HTMLElement {
     const angle = (Math.atan2(y - CY, x - CX) * 180) / Math.PI;
     let rel = (angle - START_ANGLE + 720) % 360;
     if (rel > SWEEP) rel = rel > SWEEP + (360 - SWEEP) / 2 ? 0 : SWEEP; // pointer is in the gap
-    return (rel / SWEEP) * this._max;
+    return this._fromFrac(rel / SWEEP);
   }
 
   _applyPointer(e, moving) {
@@ -604,10 +659,14 @@ class HourlyTimerCard extends HTMLElement {
     if (drag.handle === "end") {
       const current = startOff + drag.duration;
       // Don't jump from one end of the ring to the other while dragging.
-      if (moving && Math.abs(at - current) > max / 2) at = current > max / 2 ? max : 0;
-      drag.duration = this._snapDuration(Math.max(0, at - startOff));
+      if (moving && Math.abs(this._toFrac(at) - this._toFrac(current)) > 0.5) {
+        at = this._toFrac(current) > 0.5 ? max : 0;
+      }
+      drag.duration = this._snapDuration(Math.max(0, at - startOff), at);
     } else {
-      if (moving && Math.abs(at - startOff) > max / 2) at = startOff > max / 2 ? max : 0;
+      if (moving && Math.abs(this._toFrac(at) - this._toFrac(startOff)) > 0.5) {
+        at = this._toFrac(startOff) > 0.5 ? max : 0;
+      }
       // Move the whole block; keep its end on the ring.
       const latest = Math.max(0, max - drag.duration);
       const off = Math.min(at, latest);
@@ -623,7 +682,7 @@ class HourlyTimerCard extends HTMLElement {
     const v = this._view();
     const startAt = v.mode === "scheduled" ? v.startAt : null;
     const base = ["idle", "off", "manual"].includes(v.mode) ? 0 : (v.endAt - Math.max(v.startAt, Date.now())) / MINUTE;
-    const step = this._step;
+    const step = this._stepAt(base, direction);
     const snapped = direction > 0 ? Math.floor(base / step) * step : Math.ceil(base / step) * step;
     const startOff = startAt ? (startAt - Date.now()) / MINUTE : 0;
     const duration = Math.min(Math.max(0, snapped + direction * step), Math.max(0, this._max - startOff));
@@ -737,10 +796,18 @@ class HourlyTimerCard extends HTMLElement {
     const active = v.mode === "running" || v.mode === "scheduled";
     const startOff = active ? Math.max(0, (v.startAt - now) / MINUTE) : 0;
     const endOff = active ? Math.max(startOff, (v.endAt - now) / MINUTE) : 0;
-    const fs = Math.min(1, startOff / max);
-    const fe = manual ? 1 : Math.min(1, endOff / max);
+    const fs = this._toFrac(startOff);
+    const fe = manual ? 1 : this._toFrac(endOff);
     dial.classList.toggle("manual", manual);
 
+    // Progressive scale: a notch in the track where the one-minute steps end.
+    els.fineTick.toggleAttribute("hidden", !this._progressive); // SVG has no .hidden property
+    if (this._progressive) {
+      const a = START_ANGLE + SWEEP * this._toFrac(this._fine);
+      const [x1, y1] = polar(a, R - 8);
+      const [x2, y2] = polar(a, R + 8);
+      Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => els.fineTick.setAttribute(k, String(v)));
+    }
     els.wait.setAttribute("d", arcPath(0, fs, R));
     els.on.setAttribute("d", arcPath(fs, fe, R));
     const [kx, ky] = polar(START_ANGLE + SWEEP * fe, R);
@@ -993,7 +1060,7 @@ class HourlyTimerCard extends HTMLElement {
     const t = this._entityTimer();
     if (t.mode === "running") {
       tile.classList.add("active");
-      setProg((t.endAt - now) / MINUTE / this._max);
+      setProg(this._toFrac((t.endAt - now) / MINUTE));
       if (t.approximate) {
         this._stopTick();
         els.state.textContent = `On · ${formatMinutes(Number(this._stateObj.state) || 0)}`;
@@ -1004,7 +1071,7 @@ class HourlyTimerCard extends HTMLElement {
     } else if (t.mode === "scheduled") {
       this._stopTick();
       tile.classList.add("scheduled");
-      setProg((t.endAt - t.startAt) / MINUTE / this._max);
+      setProg(this._toFrac((t.endAt - t.startAt) / MINUTE));
       els.state.textContent = `Starts ${formatClock(t.startAt)} · ${formatMinutes((t.endAt - t.startAt) / MINUTE)}`;
     } else if (this._targetOn()) {
       this._stopTick();
