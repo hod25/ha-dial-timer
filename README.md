@@ -77,6 +77,8 @@ The card is compact by default: just the dial. Turn on `show_controls` for **−
 | `icon` | the device's icon | Icon for the tile. |
 | `max_minutes` | `240` | Time at the end of the ring. It can't be higher than the entity's maximum (1440). |
 | `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
+| `dial_scale` | `linear` | `linear`: every minute takes the same space on the ring. `progressive`: the first `fine_minutes` go one minute at a time, then `dial_step` at a time, and every step takes the same space. A small notch on the ring shows where the one-minute steps end. |
+| `fine_minutes` | `15` | With `dial_scale: progressive`, how many minutes at the start go one minute at a time. |
 | `show_controls` | `false` | Show **−/+** buttons under the dial. |
 | `show_presets` | `false` | Show quick-time buttons under the dial. It turns on by itself when you set `presets`. |
 | `presets` | `[15, 30, 60]` | Minutes for the quick-time buttons. |
