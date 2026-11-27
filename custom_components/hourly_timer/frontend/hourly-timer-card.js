@@ -12,7 +12,8 @@
  * `show_presets` adds quick time chips and `show_hints` adds a help line.
  *
  * `layout: tile` shows a one-row tile instead (icon with a small progress ring,
- * name and countdown). Tapping it opens the dial in a popup.
+ * name and countdown). Tapping it opens the dial in a popup, which shows −/+
+ * and the quick times unless `show_controls` / `show_presets` are set to false.
  *
  * Works with the integration's `number.*_timer_duration` entity (recommended)
  * or with any `input_number` (without scheduling or countdown).
@@ -105,6 +106,7 @@ class HourlyTimerCard extends HTMLElement {
     // A presets list the user wrote themselves means they want the chips
     // (cards configured before the compact default keep them).
     const userPresets = Array.isArray(config.presets) && config.presets.length > 0;
+    this._rawConfig = config;
     this.config = {
       max_minutes: 240,
       dial_step: 5,
@@ -373,7 +375,7 @@ class HourlyTimerCard extends HTMLElement {
         .unavailable .on, .unavailable .knob, .unavailable .start-knob, .unavailable .wait { display: none; }
 
         .center {
-          position: absolute; inset: 24% 20% 18%; display: flex; flex-direction: column;
+          position: absolute; inset: 19% 20% 23%; display: flex; flex-direction: column;
           align-items: center; justify-content: center; text-align: center; pointer-events: none; gap: 2px;
         }
         .cap { font-size: clamp(11px, 5cqw, 13px); color: var(--secondary-text-color); min-height: 1.2em; }
@@ -939,8 +941,16 @@ class HourlyTimerCard extends HTMLElement {
     const els = this._els;
     if (els.dialog.open) return;
     const { title, layout, ...rest } = this.config;
+    const raw = this._rawConfig || {};
     const card = document.createElement("hourly-timer-card");
-    card.setConfig({ ...rest, layout: "dial" });
+    // The popup has room for the extras: show −/+ and the quick times
+    // unless the card's config turns them off.
+    card.setConfig({
+      ...rest,
+      layout: "dial",
+      show_controls: raw.show_controls ?? true,
+      show_presets: raw.show_presets ?? true,
+    });
     els.dlgTitle.textContent = this._tileName;
     els.dlgBody.appendChild(card);
     this._popupCard = card;

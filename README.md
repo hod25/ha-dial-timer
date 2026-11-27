@@ -73,7 +73,7 @@ The card is compact by default: just the dial. Turn on `show_controls` for **−
 | --- | --- | --- |
 | `entity` | *required* | The timer's `number` entity. An `input_number` also works, but without the countdown. |
 | `title` | none | Card title. |
-| `layout` | `dial` | `dial`: the full dial. `tile`: a one-row tile with a small progress ring, the name and a countdown. Tapping the tile opens the dial in a popup. |
+| `layout` | `dial` | `dial`: the full dial. `tile`: a one-row tile with a small progress ring, the name and a countdown. Tapping the tile opens the dial in a popup, with **−/+** and the quick times (turn them off with `show_controls: false` / `show_presets: false`). |
 | `icon` | the device's icon | Icon for the tile. |
 | `max_minutes` | `240` | Time at the end of the ring. It can't be higher than the entity's maximum (1440). |
 | `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
