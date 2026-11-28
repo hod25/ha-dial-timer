@@ -31,6 +31,7 @@ All three use `dial_scale: progressive`: the small notch on the ring marks where
 ## Features
 
 - **No automations needed.** Pick an entity and you get a timer for it.
+- **Add time on the fly.** The card's **−/+** and the `hourly_timer.extend` action add or take away minutes from a running timer, to the second.
 - **Now or later.** Turn the device on right away, or schedule it to turn on later, for example in an hour for 45 minutes.
 - **Survives restarts.** Running and scheduled timers keep going after Home Assistant restarts. If the start or end time passed while Home Assistant was down, the device is turned on or off as soon as it starts again.
 - **Follows the device.** If you turn the device off by hand while the timer runs, the timer is cancelled.
@@ -92,7 +93,7 @@ The card is compact by default: just the dial. Turn on `show_controls` for **−
 | `dial_step` | `5` | Minutes per step for dragging and for **−/+**. |
 | `dial_scale` | `linear` | `linear`: every minute takes the same space on the ring. `progressive`: the first `fine_minutes` go one minute at a time, then `dial_step` at a time, and every step takes the same space. A small notch on the ring shows where the one-minute steps end. |
 | `fine_minutes` | `15` | With `dial_scale: progressive`, how many minutes at the start go one minute at a time. |
-| `show_controls` | `false` | Show **−/+** buttons under the dial. |
+| `show_controls` | `false` | Show **−/+** buttons in the ring. While a timer runs or waits, they add or take away one step from it, to the second. |
 | `show_presets` | `false` | Show quick-time buttons under the dial. It turns on by itself when you set `presets`. |
 | `presets` | `[15, 30, 60]` | Minutes for the quick-time buttons. |
 | `show_hints` | `false` | Show a help line under the dial. |
@@ -124,6 +125,18 @@ data:
 ```
 
 If a timer is running when you schedule a new one, the device is turned off until the new start time.
+
+To add time to a running or scheduled timer, use `hourly_timer.extend`. It moves the end by exactly that many minutes, to the second. Use negative minutes to take time away; if no time is left, the device turns off. On a scheduled timer only the end moves. Without a timer, positive minutes start one.
+
+```yaml
+action: hourly_timer.extend
+target:
+  entity_id: number.boiler_timer_duration
+data:
+  minutes: 10
+```
+
+For example, add 10 minutes to the water heater every time someone walks into the bathroom.
 
 ## Upgrading from 2.x
 

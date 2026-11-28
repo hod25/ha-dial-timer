@@ -25,3 +25,18 @@ schedule:
       example: "2026-11-24 22:00:00"
       selector:
         datetime:
+extend:
+  target:
+    entity:
+      integration: hourly_timer
+      domain: number
+  fields:
+    minutes:
+      required: true
+      example: 10
+      selector:
+        number:
+          min: -1440
+          max: 1440
+          unit_of_measurement: min
+          mode: box

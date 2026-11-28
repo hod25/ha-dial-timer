@@ -33,6 +33,8 @@ ATTR_STARTS_AT: Final = "starts_at"
 ATTR_TARGET_ENTITY: Final = "target_entity"
 
 SERVICE_SCHEDULE: Final = "schedule"
+SERVICE_EXTEND: Final = "extend"
+ATTR_MINUTES: Final = "minutes"
 ATTR_DURATION: Final = "duration"
 ATTR_START_IN: Final = "start_in"
 ATTR_START_AT: Final = "start_at"

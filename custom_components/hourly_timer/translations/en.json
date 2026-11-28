@@ -50,6 +50,16 @@
           "description": "Date and time to turn it on. Use instead of Start in."
         }
       }
+    },
+    "extend": {
+      "name": "Extend timer",
+      "description": "Adds minutes to the running or scheduled timer, to the second. Use negative minutes to shorten it. Without a timer, positive minutes start one.",
+      "fields": {
+        "minutes": {
+          "name": "Minutes",
+          "description": "Minutes to add. Negative minutes take time away; if no time is left, the controlled entity turns off."
+        }
+      }
     }
   }
 }

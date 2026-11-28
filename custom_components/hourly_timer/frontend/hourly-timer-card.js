@@ -11,6 +11,9 @@
  * `dial_scale: progressive` moves the first `fine_minutes` (15) one minute at a
  * time and the rest by `dial_step`, each step taking the same space on the ring.
  *
+ * While a timer runs or waits, −/+ add or take away one step from it, to the
+ * second (the integration's `hourly_timer.extend` action).
+ *
  * The card is compact by default. `show_controls` adds −/+ buttons,
  * `show_presets` adds quick time chips and `show_hints` adds a help line.
  *
@@ -23,7 +26,7 @@
  */
 
 (() => {
-const CARD_VERSION = "3.4.0";
+const CARD_VERSION = "3.5.0";
 const DEFAULT_PRESETS = [15, 30, 60];
 
 // Geometry (SVG user units). The ring is a 270° arc with the gap at the bottom.
@@ -326,8 +329,9 @@ class HourlyTimerCard extends HTMLElement {
         mode: this._preview.duration === 0 ? "off" : this._preview.startAt ? "scheduled" : "running",
         preview: true,
         startAt,
-        endAt: startAt + this._preview.duration * MINUTE,
+        endAt: this._preview.endAt ?? startAt + this._preview.duration * MINUTE,
         duration: this._preview.duration,
+        extend: this._preview.extend,
       };
     }
     const t = this._entityTimer();
@@ -679,6 +683,7 @@ class HourlyTimerCard extends HTMLElement {
   _nudge(direction) {
     if (!this._available) return;
     this._cancelCommit();
+    if (this._nudgeExtend(direction)) return;
     const v = this._view();
     const startAt = v.mode === "scheduled" ? v.startAt : null;
     const base = ["idle", "off", "manual"].includes(v.mode) ? 0 : (v.endAt - Math.max(v.startAt, Date.now())) / MINUTE;
@@ -688,6 +693,37 @@ class HourlyTimerCard extends HTMLElement {
     const duration = Math.min(Math.max(0, snapped + direction * step), Math.max(0, this._max - startOff));
     this._preview = { startAt, duration };
     this._scheduleCommit();
+  }
+
+  /**
+   * While a timer runs or waits, −/+ move its end by one step, to the second,
+   * with the integration's extend action. Quick presses add up into one call.
+   * Returns false when this doesn't apply (no timer, or not our entity).
+   */
+  _nudgeExtend(direction) {
+    const t = this._entityTimer();
+    if (!this._canSchedule || (t.mode !== "running" && t.mode !== "scheduled")) return false;
+    const pending = this._preview;
+    if (pending && pending.extend === undefined) return false; // a drag is still being applied
+    const now = Date.now();
+    const begin = t.mode === "scheduled" ? t.startAt : now;
+    const left = (t.endAt - begin) / MINUTE; // minutes left, or the schedule's length
+    const extend0 = pending ? pending.extend : 0;
+    const step = this._stepAt(left + extend0, direction);
+    let extend = extend0 + direction * step;
+    // Keep the end on the ring; below zero just means "off".
+    const room = this._max - (begin - now) / MINUTE - left;
+    if (direction > 0) extend = Math.min(extend, Math.max(extend0, Math.floor(room)));
+    extend = Math.max(extend, -Math.ceil(left));
+    const newLeft = Math.max(0, left + extend);
+    this._preview = {
+      startAt: t.mode === "scheduled" ? t.startAt : null,
+      duration: newLeft,
+      endAt: begin + newLeft * MINUTE,
+      extend,
+    };
+    this._scheduleCommit();
+    return true;
   }
 
   _scheduleCommit() {
@@ -710,6 +746,17 @@ class HourlyTimerCard extends HTMLElement {
     const stateObj = this._stateObj;
     const preview = this._preview;
     if (!stateObj || !preview) return;
+    if (preview.extend !== undefined) {
+      if (preview.extend === 0) {
+        this._clearPreview();
+        return;
+      }
+      this._sendCall(stateObj, ["hourly_timer", "extend", {
+        entity_id: this.config.entity,
+        minutes: preview.extend,
+      }]);
+      return;
+    }
     const domain = this.config.entity.split(".")[0];
     const entityMax = Number(stateObj.attributes.max ?? 1440) || 1440;
     const duration = Math.min(entityMax, Math.max(0, Math.round(preview.duration)));
@@ -729,7 +776,10 @@ class HourlyTimerCard extends HTMLElement {
     } else {
       call = [domain, "set_value", { entity_id: this.config.entity, value: duration }];
     }
+    this._sendCall(stateObj, call);
+  }
 
+  _sendCall(stateObj, call) {
     this._sending = true;
     this._sentAt = stateObj.last_updated;
     // Keep showing the chosen value until Home Assistant reports the new state.
@@ -822,9 +872,13 @@ class HourlyTimerCard extends HTMLElement {
 
     if (v.preview) {
       this._stopTick();
-      els.stop.hidden = true;
+      els.stop.hidden = v.extend === undefined || v.mode === "off";
       const dragging = Boolean(this._drag);
-      if (v.mode === "off") {
+      if (v.extend !== undefined && v.mode === "running") {
+        els.big.textContent = formatCountdown((v.endAt - now) / 1000);
+        els.subPrefix.textContent = "Off at ";
+        els.sub.textContent = formatClock(v.endAt);
+      } else if (v.mode === "off") {
         els.big.textContent = "Off";
         els.sub.textContent = this._sending ? "Turning off…" : "";
       } else if (v.mode === "scheduled") {
