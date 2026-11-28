@@ -11,13 +11,20 @@ Useful for an electric water heater (boiler), fans, garden lights, irrigation, o
 
 It includes a dashboard card that shows a live countdown and a dial for setting the time.
 
-<p>
-  <img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-running.png" alt="Dial Timer card for a fan, running: the ring is filled to 35:35 with the end time 11:40 PM, and minus, stop and plus buttons sit in the ring's bottom opening" width="260">
-  <img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-controls.png" alt="Dial Timer card for a boiler, off: the center says Off, Tap to turn on, with minus and plus buttons in the ring's opening" width="260">
-  <img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-controls-presets.png" alt="Dial Timer card for a boiler, off, with minus and plus buttons in the ring and 15 min, 30 min and 1 h quick-time buttons below" width="260">
-</p>
+<table>
+  <tr>
+    <td align="center"><img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-running.png" alt="Dial Timer card for a fan, running: the ring is filled to 35:35 with the end time 11:40 PM, and minus, stop and plus buttons sit in the ring's bottom opening" width="250"></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-controls.png" alt="Dial Timer card for a boiler, off: the center says Off, Tap to turn on, with minus and plus buttons in the ring's opening and a 2-hour ring" width="250"></td>
+    <td align="center"><img src="https://raw.githubusercontent.com/hod25/ha-dial-timer/main/docs/images/card-controls-presets.png" alt="Dial Timer card for a boiler, off, with minus and plus buttons in the ring and 15 min, 30 min and 1 h quick-time buttons below" width="250"></td>
+  </tr>
+  <tr>
+    <td><b>Running</b>, with −/■/+ in the ring<br><code>show_controls: true</code></td>
+    <td><b>Shorter ring</b> (2 hours)<br><code>show_controls: true</code><br><code>max_minutes: 120</code></td>
+    <td><b>With quick times</b><br><code>show_controls: true</code><br><code>show_presets: true</code></td>
+  </tr>
+</table>
 
-Running with `show_controls` · off with `show_controls` · with `show_controls` and `show_presets`. By default the card shows just the dial.
+All three use `dial_scale: progressive`: the small notch on the ring marks where the one-minute steps end. By default the card shows just the dial, and `layout: tile` turns it into a one-row tile that opens the dial.
 
 > The integration's domain is `hourly_timer` (its original name), so the `hourly_timer.schedule` action and the `custom:hourly-timer-card` card type keep that name.
 
