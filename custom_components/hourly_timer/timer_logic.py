@@ -247,6 +247,46 @@ class HourlyTimer:
         if was_running:
             await self._async_call(SERVICE_TURN_OFF)
 
+    async def async_extend(self, minutes: int) -> None:
+        """Move the end of the running or scheduled timer by `minutes`.
+
+        Negative minutes shorten it. A running timer that would end in the past
+        turns the target off; a schedule that would end before it starts is
+        cancelled. Without a timer, positive minutes start one and negative
+        minutes do nothing. A timer never runs longer than MAX_DURATION.
+        """
+        minutes = int(minutes)
+        if minutes == 0:
+            return
+        if self.ends_at is None:
+            if minutes > 0:
+                await self.async_start(minutes)
+            return
+
+        now = dt_util.utcnow()
+        begin = self.starts_at or now
+        new_end = min(
+            self.ends_at + timedelta(minutes=minutes),
+            begin + timedelta(minutes=MAX_DURATION),
+        )
+        if new_end <= begin:
+            # Nothing left: same as setting the duration to 0.
+            await self.async_cancel(turn_off=not self.is_scheduled)
+            return
+
+        self.ends_at = new_end
+        self.duration = min(max(self.duration + minutes, 1), MAX_DURATION)
+        if self.is_running:
+            self._schedule_expiry()
+        await self._async_save()
+        self._notify()
+        _LOGGER.debug(
+            "Timer for %s moved by %s minutes, now ends at %s",
+            self.target_entity_id,
+            minutes,
+            self.ends_at,
+        )
+
     async def async_cancel(self, turn_off: bool) -> None:
         """Cancel the timer, optionally turning the target off."""
         await self._async_reset()

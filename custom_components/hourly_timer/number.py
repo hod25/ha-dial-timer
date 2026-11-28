@@ -18,12 +18,14 @@ from . import HourlyTimerConfigEntry
 from .const import (
     ATTR_DURATION,
     ATTR_ENDS_AT,
+    ATTR_MINUTES,
     ATTR_START_AT,
     ATTR_START_IN,
     ATTR_STARTS_AT,
     ATTR_TARGET_ENTITY,
     MAX_DURATION,
     MIN_DURATION,
+    SERVICE_EXTEND,
     SERVICE_SCHEDULE,
     STEP,
 )
@@ -39,18 +41,27 @@ SCHEDULE_SCHEMA = {
     vol.Exclusive(ATTR_START_AT, "start"): cv.datetime,
 }
 
+EXTEND_SCHEMA = {
+    vol.Required(ATTR_MINUTES): vol.All(
+        vol.Coerce(int), vol.Range(min=-MAX_DURATION, max=MAX_DURATION)
+    ),
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: HourlyTimerConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up the duration number and the schedule action."""
+    """Set up the duration number and the schedule and extend actions."""
     async_add_entities([HourlyTimerDurationNumber(entry)])
 
     platform = entity_platform.async_get_current_platform()
     platform.async_register_entity_service(
         SERVICE_SCHEDULE, SCHEDULE_SCHEMA, "async_schedule"
+    )
+    platform.async_register_entity_service(
+        SERVICE_EXTEND, EXTEND_SCHEMA, "async_extend"
     )
 
 
@@ -101,3 +112,7 @@ class HourlyTimerDurationNumber(HourlyTimerEntity, NumberEntity):
         else:
             start = dt_util.utcnow() + timedelta(minutes=start_in or 0)
         await self.timer.async_schedule(start, duration)
+
+    async def async_extend(self, minutes: int) -> None:
+        """Add minutes to the running or scheduled timer (negative to shorten)."""
+        await self.timer.async_extend(minutes)
